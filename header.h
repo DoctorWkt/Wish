@@ -66,7 +66,7 @@
 #undef  FALSE
 #define TRUE  1
 #define FALSE 0
-#if (!defined(FREEBSD_4))
+#if (!defined(FREEBSD_4) && !defined(FREEBSD_5))
 typedef int bool;		/* Must be int as we pass bools as f'n args */
 #endif
 typedef unsigned char uchar;	/* CLE uses unsigned chars throughout */

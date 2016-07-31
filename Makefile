@@ -1,15 +1,16 @@
-# The Makefile for Shell 2.0.39
+# The Makefile for Wish 2.0 
 #
-# Makefile: 39.6  11/22/93
+# $Revision: 41.4 $ $Date: 1996/06/13 23:00:34 $
 #
 # Insert compiler flags here.
 # CFLAGS are used when compiling each file
 # LDFLAGS are used when linking
 #
-CFLAGS=-g
+#CFLAGS=-m
+#CFLAGS=-g
 #CFLAGS=-g -Wall -traditional -v
 #CFLAGS= -O
-#CFLAGS= -Wall
+CFLAGS= -O -g
 #CFLAGS= -pg
 
 #LDFLAGS= -3
@@ -20,7 +21,7 @@ CFLAGS=-g
 # And the name of your compiler (may not be cc)
 #CC=/usr/bin2/cc
 #CC=/local/bin/bcc
-CC=gcc
+#CC=cc
 
 # Some compilers generate object files that don't end in `.o'. Alter the
 # following variable if this is the case
@@ -35,17 +36,18 @@ O= o
 # the ucb universe, you may need to get some ANSI C string functions that are
 # not in libc.a. These are: strtok.o strpbrk.o strspn.o strcspn.o
 #
-#CLIB=-lcurses			# OSX5_1_ATT GENSYSV
-CLIB=-ltermcap			# OSX5_1_BSD GENBSD ULTRIX J386BSD0_1
-#				  SUNOS3 SUNOS4
+CLIB=-lcurses			# OSX5_1_ATT GENSYSV
+#CLIB=-ltermcap			# OSX5_1_BSD GENBSD ULTRIX J386BSD0_1
+#				  SUNOS3 SUNOS4	FREEBSD_1 FREEBSD_2
 #CLIB=-ltermcap strtok.o strpbrk.o strspn.o strcspn.o	# OSX5_1_BSD maybe
 #CLIB=-ltermcap -lposix		# AUX2_01
 #CLIB= -lterm -lndir		# COHERENT
 
 # On some systems (PC Minix, Coherent), we need to set the final stack size.
-STACK= 30000
-#FINAL_TOUCHES= fixstack $(STACK) shell ; chmod 755 shell ; size shell # COHERENT
-#FINAL_TOUCHES= chmem '=$(STACK)' shell	# MINIX1_5
+#STACK= 30000
+#FINAL_TOUCHES= fixstack $(STACK) wish ; chmod 755 wish ; size wish # COHERENT
+#FINAL_TOUCHES= chmem '=$(STACK)' wish	# MINIX1_5 MINIX1_7
+FINAL_TOUCHES= @echo 'All done'
 
 
 # ====== END OF CONFIGURABLE SECTION ======
@@ -65,8 +67,8 @@ OBJS=   alias.$(O) bind.$(O) builtin.$(O) clebuf.$(O) clex.$(O) comlined.$(O) \
 	meta.$(O) parse.$(O) prints.$(O) signal.$(O) term.$(O) val.$(O) \
 	var.$(O)
 
-shell : $(OBJS)
-	$(CC) $(LDFLAGS) $(OBJS) -o shell $(CLIB)
+wish : $(OBJS)
+	$(CC) $(LDFLAGS) $(OBJS) -o wish $(CLIB)
 	$(FINAL_TOUCHES)
 
 $(OBJS): Makefile header.h machine.h
@@ -88,7 +90,7 @@ clean :
 	rm -f *.$(O)
 
 clr :
-	rm -f *.$(O) shell
+	rm -f *.$(O) wish
 
 realclean:
-	rm -f *.$(O) shell
+	rm -f *.$(O) wish
