@@ -1,11 +1,17 @@
 #include "header.h"
 
-int Argc;
-char **Argv;
-char linebuf[1000];
-char *prompt;
-int lenprompt;
+int Argc;		/* The number of arguments for Clam, or an alias */
+char **Argv;		/* The argument list for Clam, or an alias */
+char *prompt;		/* A pointer to the prompt string */
+int lenprompt;		/* and the length of the prompt */
+bool getuline();
+bool (*getline)()=getuline;	/* Our input routine defaults to getuline() */
 
+
+/* Lengthint is used by prprompt to determine the number
+ * of chars in the string version of an integer; this is
+ * needed so the prompt length is calculated properly.
+ */
 int lengthint(num)
   int num;
 {
@@ -15,6 +21,7 @@ int lengthint(num)
   return(i);
 }
 
+/* Print out the current time in a set length string */
 void printime()
 {
   long clock, time();
@@ -25,6 +32,11 @@ void printime()
   prints("%2d:%02d:%02d",t->tm_hour,t->tm_min,t->tm_sec);
 }
 
+/* Prprompt prints out the prompt. It parses all the special options
+ * that the prompt can take, and determines the effective length of
+ * the prompt as it appears on the screen. If there is no $prompt,
+ * it defaults to '% '.
+ */
 void prprompt()
 {
   extern int curr_hist;
@@ -87,75 +99,101 @@ void prprompt()
  */
 void leave_shell()
  {
-  setcooked();
+  setcooked(); write(1,"\n",1);
   exit(0);
  }
 
-main(argc, argv)
- int argc;
- char *argv[];
+/* Setup does most of the initialisation of the shell. Firstly the default
+ * variables & the environ variables are set up. Then the termcap strings
+ * are found, and then any other misc. things are done.
+ */
+void setup()
  {
-  extern struct candidate carray[];
-  extern char currdir[], *parsebuf;
-  extern int curr_hist, maxhist, ncand;
-  char *a, *EVget(), *expline();
-  int i,fd,pid,q;
-  TOKEN term,command();
-
+  extern char currdir[];
+  int source();
+  char *argv[2];
+				/* Initialise the environment */
+  if (!EVinit()) fatal("Can't initialise environment");
 #ifdef UCB
   if (getwd(currdir))			/* Get the current directory */
 #else
   if (getcwd(currdir,MAXPL))
 #endif
-        EVset("cwd",currdir);
-  else write(2,"Can't get cwd properly\n",23);
-  EVset("prompt","% ");
-
-  Argc= argc;				/* Set up arg variables */
-  Argv= argv;
+    EVset("cwd",currdir);
+  else
+    write(2,"Can't get cwd properly\n",23);
+  EVset("prompt","% ");			/* Set the prompt to % for now */
   catchsig();				/* Catch signals */
 #ifdef JOB
- /* setownterm(getpid());		/* We own the terminal */
-  settou();				/* and want TTOU for children */
+  settou();				/* We want TTOU for children */
 #endif
   terminal();				/* Get the termcap strings */
-  if (!EVinit()) fatal("Can't initialise environment");
-  if ((prompt=EVget("PS2"))==NULL) prompt="> ";
 
-  while(1)
-   {						/* Run a command */
-#define DEBUG
+  argv[0]="source"; argv[1]=".klamrc";
+  source(2,argv);
+ }
+
+
+/* Doline is the loop which gets a line from the user, runs it through
+ * the metachar expansion, and finally calls command() to execute it.
+ */
+
+bool doline()
+ {
+  extern struct candidate carray[];
+  extern int curr_hist, maxhist, ncand;
+  char *EVget(), *expline(), *linebuf;
+  int i,pid,q;
+  int term,command();
+  bool getuline(),meta_1();
+
 #ifdef DEBUG
 i= (int)sbrk(0);
 prints("Brk value is %x\n",i);
+prints("Getline f'n ptr is %x\n",getline);
 #endif
-    prprompt();
-    for (i=0; i<1000; i++) linebuf[i]=0;
-    setcbreak();				/* Set cbreak mode */
-    if (getuline(linebuf,&q,FALSE)==TRUE && q==0) /* Get a line from user */
+    linebuf=(char *)malloc(1024);
+    if (linebuf==NULL) return(FALSE);
+    for (i=0; i<1024; i++) linebuf[i]=0;	/* Clear the linebuf */
+    if ((*getline)(linebuf,&q)==TRUE)		/* Get a line from user */
      {
-      if (meta_1(linebuf,TRUE)==FALSE) continue; /* Expand ! */
+      if (q) return(TRUE);
+      setcooked();				/* Set us to cooked mode */
+      if (meta_1(linebuf,TRUE)==FALSE)
+	return(FALSE);				/* Expand ! */
       savehist(expline(carray));		/* Save the line */
       meta_2();					/* Expand $ and ~ */
       meta_3();					/* Expand * ? and [] */
-      setcooked();
-      parsebuf=a=expline(carray);
-      strcat(parsebuf,"\n");
       term=command(&pid,FALSE,NULL);		/* Actually run it here */
-      free(a);
-						/* Free the command words */
-       for (i=0;i<ncand; i++)
+
+       for (i=0;i<ncand; i++)			/* Free the command words */
 	if (carray[i].mode==TRUE)
 	 { carray[i].mode=FALSE;
 	   free(carray[i].name);
 	 }
-      if (term!=T_AMP)				/* If we should wait on it */
+
+      if (term!=C_AMP)				/* If we should wait on it */
 	waitfor(pid);				/* Wait for it to finish */
 #ifdef JOB
       joblist(0);				/* print the list of jobs */
 #endif
-     }
  		   				/* Close any leftover fds */
-    for (fd=3; fd<20; fd++) (void)close(fd);
+    for (i=4; i<20; i++) (void)close(i);
+    return(TRUE);
    }
+  return(FALSE);
+ }
+
+/* Main. This is the bit that starts the whole ball rolling.
+ */
+main(argc, argv)
+ int argc;
+ char *argv[];
+ {
+
+  Argc= argc;			/* Set up arg variables */
+  Argv= argv;
+  setup();			/* Set up the vars & the termcap stuff */
+
+  while(1) doline();		/* We only exit when we shutdown() */
  }

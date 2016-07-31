@@ -1,39 +1,15 @@
 #include "header.h"
 
-/* Again, these routines are taken verbatim from `Advanced Unix Programming',
- * but will be replaced with the real ones eventually.
- */
-
-char *malloc(), *realloc();
-
-#define MAXVAR	40
+/* The structure that holds the variables */
 
 static struct varslot {
 	char *name;		/* Variable name */
 	char *val;		/* Variable's value */
 	bool exported;		/* To be exported? */
-	} sym[MAXVAR];
+	struct varslot *next;	/* Pointer to next variable */
+	};
 
-static struct varslot *find(name)	/* Find a symbol table entry */
- char *name;
- {
-  int i;
-  struct varslot *v;
-
-  v=NULL;
-  for (i=0; i<MAXVAR; i++)
-    if (sym[i].name==NULL)
-     {
-      if (v==NULL) v= &sym[i];
-     }
-    else
-      if (!strcmp(sym[i].name,name))
-       {
-	v= &sym[i]; break;
-       }
-  return(v);
- }
-
+static struct varslot *vtop;	/* Pointer to the linked list of vars */
 
 static bool assign(p,s)		/* Initialise name or value */
  char **p, *s;
@@ -43,21 +19,47 @@ static bool assign(p,s)		/* Initialise name or value */
   size=strlen(s)+1;
   if (*p==NULL)
    {
-    if ((*p=malloc(size))==NULL) return(FALSE);
+    if ((*p=(char *)malloc(size))==NULL) return(FALSE);
    }
-  else if ((*p=realloc(*p,size))==NULL) return(FALSE);
+  else if ((*p=(char *)realloc(*p,size))==NULL) return(FALSE);
   strcpy(*p,s);
   return(TRUE);
  }
+
+/* Find returns a pointer to the varslot which
+ * holds the variable with given name. If no
+ * variable exists, it returns NULL. If value is
+ * non-null, a slot is created if none exist, and
+ * the value is overwritten.
+ */
+static struct varslot *find(name,value)	/* Find a symbol table entry */
+ char *name, *value;
+ {
+  struct varslot *v, *w;
+
+  for (w=v=vtop;v!=NULL;w=v,v=v->next)
+    if (v->name!=NULL && !strcmp(v->name,name)) break;
+  if (value==NULL) return(v);
+
+  				/* Otherwise update the value */
+  if (v==NULL)
+   { v=(struct varslot *)malloc((unsigned)sizeof(struct varslot));
+     if (v==NULL) { perror("find"); return(v); }
+     assign(&v->name,name);
+     v->exported=FALSE;
+   }
+  assign(&v->val,value);
+  if (vtop==NULL) vtop=v; else w->next=v;
+  return(v);
+ }
+
 
 
 bool EVset(name,val)		/* Add name and value to the environment */
  char *name, *val;
  {
-  struct varslot *v;
-
-  if ((v=find(name))==NULL) return(FALSE);
-  return(assign(&v->name,name) && assign(&v->val,val));
+  if ((find(name,val))==NULL) return(FALSE);
+  return(TRUE);
  }
 
 	
@@ -66,9 +68,7 @@ bool EVexport(name)		/* Set variable to be exported */
  {
   struct varslot *v;
 
-  if ((v=find(name))==NULL) return(FALSE);
-  if (v->name==NULL)
-    if (!assign(&v->name,name) || !assign(&v->val,"")) return(FALSE);
+  if ((v=find(name,NULL))==NULL) return(FALSE);
   v->exported=TRUE;
   return(TRUE);
  }
@@ -79,7 +79,7 @@ char *EVget(name)		/* Get value of variable */
  {
   struct varslot *v;
 
-  if ((v=find(name))==NULL || v->name==NULL) return(NULL);
+  if ((v=find(name,NULL))==NULL || v->name==NULL) return(NULL);
   return(v->val);
  } 
 
@@ -87,7 +87,7 @@ char *EVget(name)		/* Get value of variable */
 bool EVinit()		/* Initialise symtable from environment */
  {
   extern char **environ;
-  int i,namelen;
+  int i;
   char *name, *val;
 
   for (i=0; environ[i]!=NULL; i++)
@@ -107,21 +107,23 @@ bool EVupdate()		/* Build envp from symbol table */
   struct varslot *v;
   static bool updated=FALSE;
 
+  for (i=0,v=vtop;v!=NULL;v=v->next)
+    i+=v->exported;
+
   if (!updated)
-    if ((environ=(char **)malloc((MAXVAR+1)*sizeof(char *)))==NULL)
+    if ((environ=(char **)malloc((i+1)*sizeof(char *)))==NULL)
       return(FALSE);
   envi=0;
-  for (i=0; i<MAXVAR; i++)
+  for (v=vtop;v!=NULL;v=v->next)
    {
-    v= &sym[i];
     if (v->name==NULL || !v->exported) continue;
     nvlen=strlen(v->name) + strlen(v->val) + 2;
     if (!updated)
      {
-      if ((environ[envi]=malloc(nvlen))==NULL)
+      if ((environ[envi]=(char *)malloc(nvlen))==NULL)
         return(FALSE);
      }
-    else if ((environ[envi]=realloc(environ[envi],nvlen))==NULL)
+    else if ((environ[envi]=(char *)realloc(environ[envi],nvlen))==NULL)
            return(FALSE);
     sprints(environ[envi],"%s=%s",v->name,v->val);
     envi++;
@@ -134,19 +136,19 @@ bool EVupdate()		/* Build envp from symbol table */
 void EVprint(envonly)		/* Print environment */
  int envonly;
  {
-  int i;
+  struct varslot *v;
 
   if (envonly)
    {
-    for (i=0; i<MAXVAR; i++)
-      if (sym[i].name!=NULL && sym[i].exported)
-        prints("%s=%s\n",sym[i].name,sym[i].val);
+    for (v=vtop;v!=NULL;v=v->next)
+      if (v->name!=NULL && v->exported)
+        prints("%s=%s\n",v->name,v->val);
    }
   else
    {
-    for (i=0; i<MAXVAR; i++)
-      if (sym[i].name!=NULL)
-        prints("%s=%s\n",sym[i].name,sym[i].val);
+    for (v=vtop;v!=NULL;v=v->next)
+      if (v->name!=NULL)
+        prints("%s=%s\n",v->name,v->val);
    }
  }
 
@@ -157,14 +159,12 @@ void asg(argc,argv)		/* Assignment command */
  {
   char *name, *val, *strtok();
 
-  if (argc!=1) prints("Extra args\n");
+  if (argc<2) val="";
   else
-   {
-    name=strtok(argv[0],"=");
-    val=strtok(NULL,"\1");	/* get all that's left */
-    if (!EVset(name,val))
-      prints("Cant assign\n");
-   }
+    val=argv[1];
+  name=strtok(argv[0],"=");
+  if (!EVset(name,val))
+      prints("Can't assign\n");
  }
 
 

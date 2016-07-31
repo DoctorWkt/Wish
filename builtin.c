@@ -1,7 +1,7 @@
 #include "header.h"
 
 int export(), list(), history(), echo(), shift();
-int Bind(), unbind(), Cd();
+int Bind(), unbind(), Cd(), source(), alias(), unalias();
 #ifdef JOB
 int bg(), fg(), joblist();
 #endif
@@ -18,6 +18,9 @@ struct builptr {
 	{ "history",	history } ,
 	{ "bind",	Bind }	  ,
 	{ "unbind",	unbind }  ,
+	{ "source",	source }  ,
+	{ "alias",	alias }   ,
+	{ "unalias",	unalias } ,
 #ifdef JOB
 	{ "bg",		bg }	  ,
 	{ "fg",		fg }	  ,
@@ -37,19 +40,26 @@ int echo(argc,argv)
 
   for (;firstarg<argc;firstarg++)
    {
-    write(1,argv[firstarg],strlen(argv[firstarg]));
-    write(1," ",1);
+    (void)write(1,argv[firstarg],strlen(argv[firstarg]));
+    (void)write(1," ",1);
    }
-  if (doreturn) write(1,"\n",1);
+  if (doreturn) (void)write(1,"\n",1);
   return(0);
  }
+
+/* Here is the global definition for the current directory variable */
+char currdir[128];
 
 int Cd(argc,argv)
  int argc;
  char *argv[];
  {
-  extern char currdir[];
   char *path,*EVget();
+#ifdef UCB
+  char *getwd();
+#else
+  char *getcwd();
+#endif
 
   if (argc>1) path=argv[1];
   else if((path=EVget("HOME"))==NULL) path=".";
@@ -61,7 +71,7 @@ int Cd(argc,argv)
   if (getcwd(currdir,MAXPL))
 #endif
     { EVset("cwd",currdir); return(0); }
-  else { write(2,"Can't get cwd properly\n",23); return(1); }
+  else { (void)write(2,"Can't get cwd properly\n",23); return(1); }
  }
 
 int builtin(argc,argv)		/* Do builtin. This returns either the */

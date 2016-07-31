@@ -1,0 +1,55 @@
+PATH=  "$HOME/.bin:/u1/staff/wkt/Pbm/bin:/bin:/u1/staff/miken/bin:/usr/local/bin:/usr/etc:/usr/ucb:/usr/bin:/usr/NeWS/bin:/etc:/usr/games:."
+RALPAGELIB=/usr/local/lib/ralpage/ralpage
+PS=/usr/local/lib/ralpage/source/ralpage
+export RALPAGELIB PS
+TEXFONTS=$HOME/.tex/fonts:/usr/local/lib/tex/fonts
+TEXINPUTS=.:$HOME/.tex/inputs:/usr/local/lib/tex/inputs
+TEXPKS=$HOME/.tex/pkfonts:/usr/local/lib/tex/pk
+TEXFONTDESC=/u1/staff/wkt/.texsunrc
+export TEXFONTS
+export TEXINPUTS
+export TEXPKS
+export TEXFONTDESC
+dir=
+filec=
+ignoreeof=
+history=50
+prompt= "%d- "
+alias pushd 'dir=$cwd $dir ; echo $dir ; cd $1'
+alias popd 'cd $dir[0];dir= $dir[1] $dir[2] $dir[3] $dir[4] $dir[5] $dir[6] $dir[7] $dir[8];echo $cwd'
+
+alias , 'make $*'
+alias boring 'echo I know'
+alias cleanup 'rm *.dvi *.aux *.log'
+alias create 'sccs create $*; chgrp rodos $*; chmod 444 $*'
+alias compress 'compress -v -b12 $*'
+alias deledit 'sccs deledit $*; chmod 644 $*'
+alias delget 'sccs delget $*; chmod 444 $*'
+alias delta 'sccs delta $*'
+alias diffs 'sccs diffs $*'
+alias edit 'sccs edit $*; chmod 644 $*'
+alias enter 'sccs enter $*'
+alias f2l 'fig2latex $1 ftmp; sed "s/twltt/tenrm/g" < ftmp > "$1".tex; rm ftmp'
+alias f2ps 'sed "s/2 2 0 1 0 [0-9]*/2 2 0 1 0 0/g" < $1 | fig2ps -f Times-Roman > "$1".ps'
+alias get 'sccs get $*; chmod 444 $*'
+alias cg2r 'giftoppm < $1 | ppmtopgm | pgmtopbm | pbmtorast > $2'
+alias fax2ras 'faxtopbm $1 /tmp/out ; pbmtorast /tmp/out > $2 ; rm /tmp/out'
+alias file '/bin/file -m /u1/staff/wkt/.magic $*'
+alias h history
+alias info 'sccs info $*'
+alias j jobs
+alias kep 'awk -f /u1/staff/wkt/.bin/kep.awk $*'
+alias log 'last $* | head'
+alias logo 'source $HOME/.logout; exit'
+alias ls '/bin/ls -lg $*'
+alias mn 'nroff -man $* | less'
+alias ping 'ping -s $*'
+alias prs 'sccs prs $*'
+alias rep 'rcp pyr0:Report/$1/report.dvi .'
+#alias vn volkasj 
+alias reset echo "c"
+alias rod 'chgrp rodos $* ; chmod go+r $*'
+alias rodx 'chgrp rodos $* ; chmod go+rx $*'
+alias uud 'awk "/^BEGIN/,/^END/" $1 | grep -v "cut here" | uudecode'
+alias NEWS news_server
+alias zless 'zcat $* | less'

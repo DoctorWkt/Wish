@@ -4,9 +4,13 @@
  * Exceptions are some signal() calls done in job.c
  */
 
-#define SIGTYPE void	/* One of int or void */
+#define SIGTYPE void		/* One of int or void */
 
-void graceful(sig)	/* Catch signals gracefully */
+/* Graceful is set to catch most of the unused signals in Clam. All it
+ * does is print out an error message and exit. It should probably call
+ * setcooked() or do some other things.
+ */
+void graceful(sig)
   int sig;
 {
   fprints(2,"Received signal no %d\n",sig);
@@ -14,7 +18,10 @@ void graceful(sig)	/* Catch signals gracefully */
 }
 
 
-void catchsig()		/* Make us catch all signals */
+/* Catchsig is called once at Clam startup, and it sets graceful to
+ * catch most of the signals unused by Clam.
+ */
+void catchsig()
  {
   int i;
 #ifdef JOB
@@ -38,7 +45,10 @@ void catchsig()		/* Make us catch all signals */
 #endif
  }
 
-void dflsig()		/* Uncatch all signals */
+/* Dflsig sets all the signals to their default handlers, so that exec'd
+ * programs will have a standard signal environment.
+ */
+void dflsig()
  {
   int i;
 

@@ -11,9 +11,9 @@ struct histlist
 };
 
 struct histlist *htop=NULL;		/* The start of the history */
-int curr_hist=1;
-int maxhist=25;
-bool nohistdup=TRUE;
+int curr_hist=1;			/* The current history number */
+int maxhist=25;				/* Maximum # of saved lined */
+bool nohistdup=TRUE;			/* Do we omit duplicate lines? */
 
 
 /* Savehist saves the given line into the history with the given history
@@ -178,7 +178,7 @@ char *gethist(event)
   extern int curr_hist;
   struct histlist *ptr;
   char *oldline;
-  int histnum,f=0;
+  int histnum;
 
   if ((*event>='0') && (*event<='9') || (*event=='-') || (*event=='!'))
   {
@@ -211,7 +211,6 @@ prints("Histnum is %d\n",histnum);
       if (!strncmp(event,ptr->hline,histnum))
       {
 	oldline= ptr->hline;
-	f=1;
       }
       return(oldline);
   }

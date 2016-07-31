@@ -4,7 +4,8 @@
 #include <termio.h>	/* Need this for TCGETA definition */
 
 /* The job structure hold the information needed to manipulate the
- * jobs, using job numbers instead of pids.
+ * jobs, using job numbers instead of pids. Note that the linked
+ * list used by Clam is ordered by jobnumber.
  */
 struct job
 {
@@ -18,7 +19,8 @@ struct job
   struct job *next;		/* Pointer to next job */
 };
 
-struct job *jtop=NULL,*exitop,*currentjob;
+struct job *jtop=NULL,		/* The head of the linked list */
+	   *currentjob=NULL;	/* Pointer the the current job structure */
 bool jchange=FALSE;		/* Has a job changed state? */
 #endif
 
@@ -39,7 +41,11 @@ static char *siglist[]= { "","Hangup","Interrupt","Quit",
 struct job *findjob();
 void rmjob();
 
-void statusprt(pid,status)	/* Interpret status code */
+/* Statusprt is called whenever a job changes state, to show the user the
+ * new state. It determines what signal was sent to the job, if it died,
+ * and if a core was dumped.
+ */
+void statusprt(pid,status)
  int pid;
 #ifdef JOB
  union wait status;
@@ -78,6 +84,9 @@ void statusprt(pid,status)	/* Interpret status code */
 #endif
  }
 
+/* Under non-job-control, waitfor() merely wait()s for the child to change
+ * status. The change of state of other processes can't easily be determined.
+ */
 #ifndef JOB
 void waitfor(pid)	/* Wait for child */
  int pid;
@@ -103,6 +112,10 @@ void waitfor(pid)       /* Wait for child */
  {
   struct job *findjob();
 
+#ifdef DEBUG
+fprints(2,"Waiting for pid %d\n",pid);
+#endif
+#undef DEBUG
   if (pid>0)
     {
      if (currentjob && currentjob->status.w_stopval!=WSTOPPED &&
@@ -127,8 +140,7 @@ void waitfor(pid)       /* Wait for child */
  */
 
 /* Setownterm sets the user's terminal as being owned by the
- * the given process group id. Processes that are not in this
- * process group are sent SIGTTOUs if they try to write to it.
+ * the given process group id.
  *
  * @@@ NOTE @@@ This isn't currently being used, because it stops
  *		the shell from working under script etc. I'm just
@@ -159,7 +171,8 @@ void settou()
 
 /* Checkjobs is only called when SIGCHLD is sent. It receives the new status
  * of the child, and prints that out. If it's the child we are pause()d on,
- * rmjob will set currentjob to NULL, thus breaking out of the loop.
+ * rmjob will set currentjob to NULL, thus breaking out of the loop in
+ * waitfor().
  */
 void checkjobs()
  {
@@ -177,6 +190,7 @@ void checkjobs()
 #ifdef DEBUG
     printf("--- Pid %d status %x\n",wpid,status);
 #endif
+#undef DEBUG
     thisjob=findjob(wpid);
     thisjob->status=status;
     jchange=TRUE;
@@ -263,9 +277,8 @@ int pidfromjob(jobno)
 }
 
 
-/* Add the pid and it's argv[0] to the job list.
- *
- * @@@ Callum, surely this can be tidied up a bit ???
+/* Add the pid and it's argv[0] to the job list. Return the allocated
+ * job number.
  */
 #ifdef PROTO
 int addjob ( int pid , char *name )
@@ -276,62 +289,37 @@ int addjob(pid,name)
 #endif
 {
   extern char currdir[];
-  int jobno,diff=(-1);
+  int jobno,last=0;
   struct job *ptr,*old,*new;
-  char execdir[MAXPL];
-
-  for (old=ptr=jtop,jobno=1;ptr;jobno++,old=ptr,ptr=ptr->next)
-    if (jtop->jobnumber>1 || (diff=old->jobnumber-ptr->jobnumber+1)<0) break;
-  if (diff<0)
-    if (jobno!=1)			/* insertion between old and ptr */
-    {
-      new=(struct job *) malloc ((unsigned)(sizeof(struct job)));
-      if (new==NULL)
-      {
-        perror("addjob");
-	return(jobno);
-      }
-      old->next=new;
-      new->next=ptr;
-      ptr=new;
-    }
-    else			/* insertion before jtop */
-    {
-      old=(struct job *) malloc ((unsigned)(sizeof(struct job)));
-      if (old==NULL)
-      {
-        perror("addjob");
-	return(jobno);
-      }
-      old->next=jtop;
-      ptr=jtop=old;
-    }
-  else					/* append at end */
-  {
-    ptr=(struct job *) malloc ((unsigned)(sizeof(struct job)));
-    if (ptr==NULL)
-    {
-      perror("addjob");
-      return(jobno);
-    }
-    old->next=ptr;
-    ptr->next=0;
-  }
-  ptr->jobnumber=jobno;
+					/* Build the structure */
+  ptr=old=(struct job *)malloc((unsigned) sizeof(struct job));
+  if (ptr==NULL) { perror("addjob"); return(0); }
   ptr->pid=pid;
   ptr->name=(char *) malloc ((unsigned)(strlen(name)+1));
-  if (ptr->name)
-    (void) strcpy(ptr->name,name);
-  else
-      perror("addjob");
+  if (ptr->name) (void) strcpy(ptr->name,name);
+  else { perror("addjob"); return(0); }
   ptr->status.w_status=0;
   ptr->dir=(char *) malloc ((unsigned)(strlen(currdir)+1));
-  if (ptr->dir)
-    (void) strcpy(ptr->dir,currdir);
-  else
-    perror("addjob");
+  if (ptr->dir) (void)strcpy(ptr->dir,currdir);
+  else { perror("addjob"); return(0); }
   ptr->lastmod=time((long *)0);
-  currentjob=ptr;			/* a new current job */
+  ptr->next= (struct job *)NULL;
+					/* Find the end of list */
+  if (jtop==NULL)
+   { jobno=ptr->jobnumber=1;
+     jtop=ptr;
+   }
+  else
+   {
+    for (last=0,old=new=jtop;		/* Find a gap to put the node in */
+         new!=NULL&&new->jobnumber-last==1;
+         old=new,last=new->jobnumber,new=new->next);
+    last++;
+    if (new==NULL) { old->next=ptr; ptr->next=NULL; }
+    else { ptr->next=new;  old->next=ptr; }
+    jobno=ptr->jobnumber=last;
+   }
+  /* currentjob=ptr;			/* a new current job */
 #ifdef DEBUG
 fprints(2,"added jobno %d pid %d\n",jobno,pid);
 #endif

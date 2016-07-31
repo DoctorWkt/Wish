@@ -151,7 +151,7 @@ int matchdir(directory,pattern)
   char *directory,*pattern;
 {
   DIR *dirp,*opendir();
-#if defined(ATT) || defined(PYR)
+#ifdef USES_DIRECT
   struct direct *entry,*readdir();
 #else
   struct dirent *entry,*readdir();
@@ -219,7 +219,7 @@ void finddir(word,dir)
 void tilde(word,dir)
  char *word, *dir;
  {
-  struct passwd *entry;
+  struct passwd *entry, *getpwuid(), *getpwnam();
   char *a;
 
   word++;
@@ -250,6 +250,7 @@ void dollar(cand, doll)
   extern char **Argv;
   char *start, *end="", *value, *EVget();
   char c=EOS;
+  int mode=cand->mode&C_QUOTEBITS;
   unsigned int length, base, mall=0;	/* Mall is 1 if we've malloc'd */
 
   *(doll++)=EOS;			/* Remove the $ sign */
@@ -268,26 +269,29 @@ void dollar(cand, doll)
    {
     value= Argv[0];
    }
-  else if (!strcmp(doll,"@"))		/* Insert all args into carray */
+  else if (!strcmp(doll,"*"))		/* Insert all args into carray */
    {
+    if (Argc>1)
+     {
       base=ncand;			/* Save start of expansion */
       ncand += (Argc-1);
       carray[ncand-1].next=cand->next;
       carray[ncand-1].name= Argv[Argc-1];
-      carray[ncand-1].mode= FALSE|C_SPACE;
+      carray[ncand-1].mode= mode|C_SPACE;
       cand->next= &carray[base];
       for (length=1;base<ncand-1;base++,length++)
        { carray[base].name= Argv[length];
-         carray[base].mode= FALSE|C_SPACE;
+         carray[base].mode= mode|C_SPACE;
          carray[base].next= &carray[base+1];
        }
-      if (cand->mode&TRUE) { free(cand->name); cand->mode=FALSE; }
-      cand->name=NULL;
-     return;
-    }
+     }
+    if (cand->mode&TRUE) { free(cand->name); cand->mode=FALSE; }
+    cand->name=NULL;
+    return;
+   }
   else if ((length=atoi(doll))!=0)	/* Replace with Argv[i] */
    {
-    value= Argv[length];
+    value= (length<Argc ? Argv[length] : "" );
    }
   else 
    {					 /* Find the last char of the var */
@@ -304,7 +308,7 @@ if (value) prints("Found variable $%s, value %s\n",doll,value);
    {
     if (cand->mode&TRUE) free(cand->name); /* we can replace totally */
     cand->name= value;
-    cand->mode= FALSE|C_SPACE;
+    cand->mode= mode|C_SPACE;
    }
   else
    {					/* insert the value */
@@ -317,7 +321,7 @@ if (value) prints("Found variable $%s, value %s\n",doll,value);
 	       }
     if (cand->mode&TRUE) free(cand->name);
     cand->name= start;
-    cand->mode= TRUE|C_SPACE;
+    cand->mode= mode|TRUE|C_SPACE;
    }
  }
  
@@ -329,21 +333,104 @@ char *expline(list)
  struct candidate *list;
  {
   struct candidate *q;
-  char *out, *a;
-  int i;
+  char *out, *a, quote;
+  int i,mode;
 					/* Find the amount to malloc */
-  for (i=0,q=list;q!=NULL;q=q->next) if (q->name) i+= strlen(q->name) +2;
+  for (i=0,q=list;q!=NULL;q=q->next) if (q->name) i+= strlen(q->name) +4;
 
   out= (char *)malloc((unsigned) i+4);
   if (out!=NULL)
-   { for (a=out,q=list;q!=NULL;q=q->next)
-      if (q->name)
-       { strcpy(a,q->name); a+= strlen(q->name); 
-         if (q->mode&C_SPACE) *(a++)=' ';
-       }
-     *a=EOS;
+   {
+    for (a=out,q=list;q!=NULL;q=q->next)
+      { mode=q->mode;
+        if (q->name)
+         { switch(mode&C_QUOTEBITS)
+	    { case C_QUOTE     : quote= '\''; break;
+	      case C_DBLQUOTE  : quote= '"'; break;
+	      case C_BACKQUOTE : quote= '`'; break;
+	      default:		 quote= EOS;
+	    }
+	   if (quote) *(a++)=quote;
+	   strcpy(a,q->name); a+= strlen(q->name); 
+	   if (quote) *(a++)=quote;
+           if (q->mode&C_SPACE) *(a++)=' ';
+         }
+       else switch(mode&C_WORDMASK)
+	{ case C_SEMI   : strcpy(a,"; ");  a+=2; break;
+	  case C_PIPE   : strcpy(a,"| ");  a+=2; break;
+	  case C_DBLPIPE: strcpy(a,"|| "); a+=3; break;
+	  case C_AMP    : strcpy(a,"& ");  a+=2; break;
+	  case C_DBLAMP : strcpy(a,"&& "); a+=3; break;
+	  case C_LT     : strcpy(a,"< ");  a+=2; break;
+	  case C_LTLT   : strcpy(a,"<< "); a+=3; break;
+	  case C_GT     : strcpy(a,"> ");  a+=2; break;
+	  case C_GTGT   : strcpy(a,">> "); a+=3; break;
+        }
+       *a=EOS;
+      }
    }
   return(out);
+ }
+
+#ifdef DEBUG
+/* Wordlist is used for debugging to print out the carray linked list */
+void listcarray()
+ {
+  struct candidate *curr;
+  prints("Here's the wordlist:\n");
+  for (curr=carray; curr!=NULL; curr=curr->next)
+   { prints("--> ");
+     if (curr->name) prints("%s",curr->name);
+     if (curr->mode&C_WORDMASK) switch(curr->mode&C_WORDMASK)
+      { case C_SEMI    : prints(";    C_SEMI"); break;
+        case C_PIPE    : prints("|    C_PIPE"); break;
+        case C_DBLPIPE : prints("||   C_DBLPIPE"); break;
+        case C_AMP     : prints("&    C_AMP"); break;
+        case C_DBLAMP  : prints("&&   C_DBLAMP"); break;
+        case C_LT      : prints("<    C_LT"); break;
+        case C_LTLT    : prints("<<   C_LTLT"); break;
+        case C_GT      : prints("%d>   C_GT",curr->mode&C_FD); break;
+        case C_GTGT    : prints("%d>>  C_GTGT",curr->mode&C_FD); break;
+        default	     : prints("%o  C_UNKNOWN",curr->mode);
+      }
+     else
+      { if (curr->mode&C_SPACE) prints("   C_SPACE");
+        if (curr->mode&C_QUOTE) prints("   C_QUOTE");
+        if (curr->mode&C_DBLQUOTE) prints("   C_DBLQUOTE");
+        if (curr->mode&C_BACKQUOTE) prints("   C_BACKQUOTE");
+        if (curr->mode&TRUE) prints("   (malloc'd)");
+      }
+     write(1,"\n",1);
+   }
+}
+#endif
+
+/* Addword is used by Meta_1 to add a word into the carray list.
+ * This is where history is expanded.
+ */
+void addword(string,mode)
+ char *string;
+ int mode;
+ {
+  bool meta_1();
+  char *b, *gethist();
+
+  if (string!=NULL)
+   {
+    if (*string=='!' && (b=gethist(++string))!=NULL)
+      { meta_1(b,FALSE); return; }        /* Expand it too */
+#ifdef OLDMALLOC
+    carray[ncand].name=(char *)malloc((unsigned)strlen(string)+4);
+    if (carray[ncand].name!=NULL)
+     { strcpy(carray[ncand].name,string); mode|=TRUE; }
+#else
+    { carray[ncand].name= string; mode&= ~FALSE; }
+#endif
+   }
+  else carray[ncand].name=NULL;
+  carray[ncand].mode=mode;
+  carray[ncand-1].next= &carray[ncand];
+  carray[ncand++].next=NULL;
  }
 
 /* Meta_1 takes the user's input line, and builds a linked list of words
@@ -362,54 +449,56 @@ bool meta_1(old,start)
 
   if (start==TRUE) { ncand=0; wordlist=carray; }
   while(1)						/* Parse each word */
-   {
-    mode=0;
-    a=strpbrk(old," \t\n\"'");			/* Find possible end */
+   { a=strpbrk(old," \t\n\"'`;|<>&=");			/* Find possible end */
     if (a!=NULL)
      {
-      switch(*a)
+      c= *a; *a=EOS;					/* Terminate the word */
+      switch(c)
        {
-        case '"' : if (a==old) 				/* Find match */
-		   { a=strchr(old+1,'"');
-		     if (a==NULL) {fprints(2,"Unmatched \"\n"); return(FALSE);}
-		     a++; if (*a==' '||*a=='\t') {a++; mode=C_SPACE;} break;
-		   }
+        case '"' : mode=C_DBLQUOTE; goto quotes ;	/* Yuk, a goto */
+        case '\'': mode=C_QUOTE; goto quotes ;
+        case '`' : mode=C_BACKQUOTE;
+quotes:						/* Get the quoted word */
+		   if (a>old) addword(old,0);
+		   old=a+1; a=strchr(old,c);
+		   if (a==NULL) {fprints(2,"Unmatched %c\n",c); return(FALSE);}
+		   *(a++)=EOS; if (*a==' '||*a=='\t') {a++; mode|=C_SPACE;}
+		   addword(old,mode);
 		   break;
-        case '\'': if (a==old) 				/* Find match */
-		   { a=strchr(old+1,'\'');
-		     if (a==NULL) {fprints(2,"Unmatched '\n"); return(FALSE);}
-		     a++; if (*a==' '||*a=='\t') {a++; mode=C_SPACE;} break;
-		   }
+        case '|' : mode=C_PIPE; goto doubles ;		/* Yuk, another goto */
+        case '&' : mode=C_AMP; goto doubles ;
+        case '<' : mode=C_LT;
+doubles:						/* Get the symbol */
+		   if (a>old) addword(old,C_SPACE);
+		   a++; if (*a==c) { a++; mode+=C_DOUBLE; }
+		   addword(NULL,mode);
 		   break;
-        default  : mode=C_SPACE;
+        case ';' : if (a>old) addword(old,C_SPACE);	/* Semicolons and > */
+		   addword(NULL,C_SEMI);		/* are special */
+		   a++;
+		   break;
+        case '=' : *a=c; c= *(++a); *a=EOS;		/* Save the char */
+		   addword(old,C_SPACE); *a=c;		/* after the = */
+		   break;
+	case '>' : mode=1; c= *(a-1)-'0';		/* Get any fd number */
+		   if (c>=0 && c<10) { mode=c; *(a-1)=EOS; }
+		   if (a>old) addword(old,C_SPACE);
+		   a++; if (*a=='>') { a++; mode|=C_GTGT; }
+		   else mode|=C_GT;
+		   addword(NULL,mode); break;
+	case '\n':
+	case ' ' :					/* Just add the word */
+	case '\t': addword(old,C_SPACE); a++; break;
+        default  : fatal("meta_1");
        }
-      c= *a; *a=EOS; 				/* Terminate the word */
      }
-#ifdef DEBUG
-fprints(2,"Found word #%s#\n",old);
-#endif
-    switch(*old)
-     {
-      case '!': b= gethist(++old);
-		if (b) meta_1(b,FALSE);		/* Expand it too */
-		break;
-      default:					/* Append to the carray */
-      	          carray[ncand].name=(char *)malloc((unsigned) strlen(old)+4);
-        	  if (carray[ncand].name!=NULL)
-         	   { strcpy(carray[ncand].name,old);
-           	     carray[ncand++].mode=TRUE|mode;
-         	   }
-     }
-    carray[ncand-1].next= &carray[ncand];	/* Join the linked list */
+    else { addword(old,0); break; }
 
-    if (a==NULL || ncand==MAXCAN) break; *a=c;
-    for (old=a; *old==' '|| *old=='\t'; old++); /* Bypass whitespace */
+    if (a==NULL || ncand==MAXCAN) break;		/* No more to do */
+    for (old=a; *old==' '|| *old=='\t'; old++);		/* Bypass whitespace */
    }
-  carray[ncand-1].next=NULL;			/* Terminate the linked list */
 #ifdef DEBUG
-prints("meta_1: Here's the wordlist:\n");
-for (curr=carray; curr!=NULL; curr=curr->next)
-  if (curr->name) prints("--> %s\n",curr->name);
+  listcarray();
 #endif
   return(TRUE);
  }
@@ -423,10 +512,7 @@ void meta_2()
   for (curr=carray;curr!=NULL;curr=curr->next)
    {
     a=curr->name;
-    if (*a=='\'') continue;				/* Skip 'word' */
-
-    if (*a=='"')					/* Remove ""s */
-      { for(b=a+1; *b!='"'; a++, b++) *a= *b; *a=EOS; a=curr->name; }
+    if (a==NULL || curr->mode&C_QUOTE) continue;	/* Skip 'word' & sym */
 
     if ((b=strchr(a,'$')))				/* If a variable */
       dollar(curr,b);					/* expand it */
@@ -442,6 +528,9 @@ void meta_2()
           { strcpy(curr->name,tildir); curr->mode=TRUE|C_SPACE; }
       }
    }
+#ifdef DEBUG
+  listcarray();
+#endif
  }
 
 
@@ -451,12 +540,12 @@ void meta_3()
   extern int compare();
   char dir[MAXWL];
   struct candidate *curr, *a;
-  char *b;
   int base;
 
   for(curr=carray;curr!=NULL;)
-   {						/* Skip all quoted words */
-    if (*(curr->name)=='\'') {curr=curr->next; continue;}
+   {						/* Skip quoted words & syms */
+    if (curr->mode&C_QUOTEBITS || curr->mode&C_WORDMASK || curr->name==NULL)
+      {curr=curr->next; continue;}
 						/* If we find these */
     if (strpbrk(curr->name,"*?["))
      {
@@ -479,8 +568,6 @@ void meta_3()
     curr=curr->next;
    }
 #ifdef DEBUG
-prints("meta_3: Here's the wordlist:\n");
-for (curr=carray; curr!=NULL; curr=curr->next)
-  if (curr->name) prints("--> %s\n",curr->name);
+  listcarray();
 #endif
  }

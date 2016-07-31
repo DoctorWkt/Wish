@@ -210,7 +210,7 @@ static void expbind(inbuf)	/* Expand bindings from user's input */
  * extended ASCII.
  */
 
-static int getcomcmd(z)	/* Get either a character or a command from the */
+static int getcomcmd()	/* Get either a character or a command from the */
  {			/* user's input */
   int c,oldc;
  
@@ -451,9 +451,8 @@ void copyback(line,pos,count)
 
 #define delprevword(line,pos)		prevword(line,pos,0)
 #define backword(line,pos)	 	prevword(line,pos,1)
-#define yankprev(line,pos)		prevword(line,&pos,2)
 
-/* The following two routines each replace three separate oles from old Clam */
+/* The following two routines each replace three separate ones from old Clam */
 
 /* Nextword works on the word after/at the cursor poition, depending on flag:
  *
@@ -469,7 +468,7 @@ void nextword(line,p,flag)
   char *line;
   int *p,flag;
 {
-  int inword=0,l=1,pos=*p,charcount=0;
+  int inword=0,l=1,pos= *p,charcount=0;
   char c;
 
   while(l)
@@ -510,7 +509,6 @@ void prevword(line,p,flag)
   int *p,flag;
 {
   int inword=0,l=1,pos= *p,charcount=0;
-  char c;
 
   while(l)
    {
@@ -630,9 +628,10 @@ bool getuline(line,nosave)
   extern char *EVget();
   extern char beep[],cl[];
   extern int errno,lenprompt,curr_hist,maxhist;
-  char a,remline[MAXLL];
+  extern void prprompt(), setcbreak();
+  char a;
   int c,times=1,i,pos=0,hist=curr_hist,
-      hsave=lenprompt,vsave=0,possave=0,try=0;
+      hsave=lenprompt,vsave=0,possave=0;
   int beeplength=strlen(beep);
 
   curs[0]=lenprompt;	/*lenprompt global set by prprompt or when prompt set*/
@@ -643,6 +642,8 @@ bool getuline(line,nosave)
   bindptr=bindbuf;	/* Set up the pointer to the bind buffer */
   *bindptr=EOS;
 
+  prprompt();		/* Print out our prompt */
+  setcbreak();		/* and set the terminal into cbreak mode */
   while (1)
   {
     c=getcomcmd();	/* Get a character or a command */

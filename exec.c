@@ -13,7 +13,7 @@ redirect(newfd, oldfd, how)
     int how;
 {
     int appnd, bckgnd;
-    int fd, mode, flags;
+    int mode, flags;
 
 #define Ifil	newfd->ifil
 #define Ofil	newfd->ofil
@@ -80,22 +80,6 @@ fprints(2,"Outfd is %d\n",Outfd);
 	}
 	else
 	{
-#ifdef COHERENT
-	    flags = O_WRONLY;	/* Minix has old open call */
-	    mode = 0777;
-	    errno = OK;		/* Set no current errors */
-	    if ((!appnd) || (((open(Ofil, flags)) == -1) && (errno == EINVAL)))
-	    {
-		if (creat(Ofil, mode) == -1)
-		{
-		    fprints(2, "Can't open %s\n", Ofil); return (-1);
-		}
-		if (open(Ofil, flags) == -1)
-		{
-		    fprints(2, "Can't open %s\n", Ofil); return (-1);
-		}
-	    }
-#else
 	    flags = O_WRONLY | O_CREAT;
 	    if (!appnd)
 		flags |= O_TRUNC;
@@ -104,7 +88,6 @@ fprints(2,"Outfd is %d\n",Outfd);
 	    {
 		fprints(2, "Can't open %s\n", Ofil); return (-1);
 	    }
-#endif
 	    if (appnd) lseek(1, 0L, 2);
 	}
     }
@@ -127,30 +110,53 @@ fprints(2,"Outfd is %d\n",Outfd);
 	}
 	else
 	{
-#ifdef COHERENT
-	    flags = O_WRONLY;
-	    mode = 0777;
-	    errno = OK;		/* Set no current errors */
-	    if (creat(Efil, mode) == -1)
-	    {
-		fprints(2, "Can't open %s\n", Efil); return (-1);
-	    }
-	    if (open(Efil, flags) == -1)
-	    {
-		fprints(2, "Can't open %s\n", Efil); return (-1);
-	    }
-#else
 	    flags = O_WRONLY | O_CREAT | O_TRUNC;
 	    mode = 0777;
 	    if (open(Efil, flags, mode) == -1)
 	    {
 		fprints(2, "Can't open %s\n", Efil); return (-1);
 	    }
-#endif
 	}
     }
 #endif
+ return(0);
 }
+
+/* Runalias checks to see if there is an alias, and then runs it.
+ * It either returns the return value of the alias, or -1 if there
+ * was no alias.
+ *
+ * CURRENT ASSUMPTION. We were fork'd, thus we can rearrange Argv.
+ */
+int runalias(argc, argv)
+ int argc;
+ char *argv[];
+ {
+  extern bool getaliasline(), (*getline)();
+  extern int Argc;
+  extern char **Argv;
+  struct adefn *checkalias();
+  bool (*oldgetline)();
+  void catchsig();
+  int nosave;
+  
+  catchsig();		/* Set back to Clam's defaults, in case of fork() */
+
+  Argc= argc; Argv=argv;
+
+  if (checkalias(argv[0])!=NULL)
+    {
+#ifdef DEBUG
+prints("About to send the alias through doline()\n");
+#endif
+	oldgetline= getline;
+	getline= getaliasline;
+	while(doline());
+	getline= oldgetline;
+	return(0);
+    }
+  else return(-1);
+ }
 
 
 /* Invoke simple command. This takes the args to pass to the executed
@@ -165,7 +171,7 @@ int invoke(argc,argv,newfd,how)
  struct rdrct *newfd;
  {
   int pid,i;
-  bool builtin();
+  int builtin();
   struct rdrct oldfd;
 
 			/* Firstly redirect the input/output */
@@ -195,6 +201,9 @@ int invoke(argc,argv,newfd,how)
 			/* The fork only wants fds 0,1,2 */
 	     for (i=3; i<20; i++) close(i);
 			/* Finally exec() the beast */
+
+	     if ((i=runalias(argc,argv))!=-1) exit(i);
+
 	     /* fprints(2,"Execing %s as pid %d\n",argv[0],getpid()); */
 	     execvp(argv[0],argv);
 			/* Failed, exit the child */
@@ -202,6 +211,9 @@ int invoke(argc,argv,newfd,how)
 	     exit(0);
 			/* Unredirect our I/O */
     default: redirect(&oldfd,NULL,0);
+#ifdef DEBUG
+prints("Just forked %s, pid %d\n",argv[0],pid);
+#endif
 #ifdef JOB
 	     addjob(pid,argv[0]);
 #endif

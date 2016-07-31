@@ -1,9 +1,15 @@
 #include "header.h"
 
+/* Here is the declaration of the candidate array. This is used in meta.c
+ * and probably in parse.c, as well as several million other places.
+ */
 struct candidate carray[MAXCAN];
-static int numcand,maxlen;
 
+static int numcand,maxlen;	/* Holds # of candidates */
 
+/* Compare is the routine used by qsort to reorder the elements
+ * in the carray.
+ */
 int compare(a,b)
   struct candidate *a,*b;
 {
@@ -11,7 +17,8 @@ int compare(a,b)
 }
 
 
-/* Print out the maxlen partial match on the word
+/* Print out the maxlen partial match on the word, placing the result at
+ * pos in the given line.
  */
 static void extend(line,pos,word)
   char *line;
@@ -95,6 +102,10 @@ static void colprint()
 }
 
 
+/* Find the name of a file, given a partial word to match against. The
+ * word may be an absolute path name, or a relative one. Any matches
+ * against the word are added to the carray.
+ */
 static void findfile(word)
  char *word;
  {
@@ -103,7 +114,7 @@ static void findfile(word)
   char partdir[MAXWL];
   char *match;
   DIR *dirp;
-#if defined(ATT) || defined(PYR)
+#ifdef USES_DIRECT
   struct direct *entry, *readdir();
 #else
   struct dirent *entry, *readdir();
@@ -159,6 +170,10 @@ static void findfile(word)
  }
 
 
+/* Find the name of a file, or a user, given the partial word. If there
+ * are no slashes, just go for a user, else get the home dir & call
+ * findfile. Any matches against the word are added to the carray.
+ */
 static void findpasswd(word)
  char *word;
  {
@@ -166,7 +181,7 @@ static void findpasswd(word)
   char dir[MAXWL];
   char *a;
 
-  struct passwd *entry;
+  struct passwd *entry, *getpwent();
 
   if ((a=strchr(word,'/'))!=NULL)	/* We have to find a file */
    {
@@ -194,6 +209,9 @@ static void findpasswd(word)
   endpwent();
  }
 
+/* Find the name of a file by looking through $PATH.
+ * Any matches against the word are added to the carray.
+ */
 static void findbin(word)
  char *word;
  {
@@ -228,6 +246,13 @@ static void findbin(word)
  }
 
 
+/* Complete subsumes the work of two routines in old Clam, depending on how:
+ *
+ * case 0: 	Print out a columnated list of files that match the word
+ *		at position pos. The line is unchanged.
+ * case 1:	Try to complete as much as possible the word at pos, by
+ *		using the find routines above. Add the completion to the line.
+ */
 void complete(line,pos,how)
  char *line;
  int *pos;

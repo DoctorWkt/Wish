@@ -1,15 +1,36 @@
 #include "header.h"
 
 int beeplength;
-char termcapbuf[1024],bs[10],nd[10],cl[10],cd[10],up[10],so[10],se[10],beep[20];
+char termcapbuf[1024],bs[20],nd[20],cl[20],cd[20],up[20],so[20],se[20],beep[20];
 
 /* This file contains routines for setting the terminal characteristics,
  * and for getting the termcap strings.
  */
 
-void setcbreak()	/* Set terminal to cbreak mode */
-{
+#ifdef DEBUG
+/* Printctrl prints out a terminal sequence that Clam got
+ * from termcap. Only used when debugging the ensure Clam
+ * is actually getting the strings, and the right ones.
+ */
+void printctrl(name,str)
+ char *name, *str;
+ {
   int i;
+
+  prints("%s: ",name);
+  for (i=0;str[i];i++)
+  if (str[i]>31) putchar(str[i]);
+  else { putchar('^');
+         if (str[i]>26) putchar(str[i]+64);
+         else putchar(str[i]+96);
+       }
+  putchar('\n');
+ }
+#endif
+
+/* Setcbreak: Set terminal to cbreak mode */
+void setcbreak()
+{
  
 #ifdef ATT
   struct termio tbuf;
@@ -24,7 +45,6 @@ void setcbreak()	/* Set terminal to cbreak mode */
   struct tchars s, *setsigc= &s;
 # ifdef UCB
   struct ltchars moresigc;
-  int pid;
 # endif
 
 /* setup terminal with ioctl calls */
@@ -55,7 +75,8 @@ void setcbreak()	/* Set terminal to cbreak mode */
 }
 
 
-void setcooked()		/* Set terminal to cooked mode */
+/* Setcooked: Set terminal to cooked mode */
+void setcooked()
 {
 #ifdef ATT
 
@@ -63,7 +84,7 @@ void setcooked()		/* Set terminal to cooked mode */
 
   if (ioctl(0,TCGETA,&tbuf)) perror("ioctl in setcooked");
   tbuf.c_lflag = tbuf.c_lflag | ICANON | ECHO;
-  tbuf.c_cc[4]=04;              /* set EOT to ^D */
+  tbuf.c_cc[4]=04;              	/* set EOT to ^D */
   if (ioctl(0,TCSETA,&tbuf)) perror("ioctl sd");
 
 #else
@@ -100,92 +121,42 @@ void setcooked()		/* Set terminal to cooked mode */
 #endif
 }
 
-bool tflagexist(id,tc)
-  char *id,*tc;
-{
-  int i;
-
-  for (i=0;tc[i+2]!=EOS;i++)
-    if (tc[i]==':' && (tc[i+1]==id[0]) && (tc[i+2]==id[1]))
-      return(TRUE);
-  return(FALSE);
-}
-
-/* Set up the termcap string in the given variable.
- * Returns 1 if ok, 0 if no string.
+/* gettstring: Given the name of a termcap string, gets the string
+ * and places it into loc.  * Returns 1 if ok, 0 if no string.
+ * If no string, loc[0] is set to EOS.
  */
 bool gettstring(name,loc)
  char *name, *loc;
  {
   extern char termcapbuf[];
-  char bp[1024],*area;
+  char bp[50], *area=bp;
  
-  if (tflagexist(name,termcapbuf))
+  if (tgetstr(name,&area)!=NULL)
    {
     area=bp;
-    tgetstr(name,&area);
-    area=bp;
-    while (isdigit(*area)) area++;
-    strncpy(loc,area,10); return(TRUE);
+    strncpy(loc,area,20); return(TRUE);
    }
   else loc[0]=EOS; return(FALSE);
  }
 
+
+/* Terminal is called at the beginning of Clam to get the termcap
+ * strings needed by the Command Line Editor. If they are not got,
+ * or the wrong ones are found, the CLE will act strangely. Clam
+ * should at this stage default to a dumber CLE.
+ */
 void terminal()
 {
+  extern char *EVget();
   extern int wid,beeplength;
   extern char termcapbuf[],bs[],nd[],cl[],cd[],up[],so[],se[],beep[];
-  char term[10];
-#ifdef ATT
-  char *area;
-#endif
+  char term[20];
  
 /* set up cursor control sequences from termcap */
  
-  strncpy(term,getenv("TERM"),10);
+  strncpy(term,EVget("TERM"),10);
   tgetent(termcapbuf,term);
- 
-                        /* The following is a hack to get Clam to */
-                        /* work under ATT, as we don't know how to */
-                        /* use the termcap emulation under ATT curses */
-                        /* If you can fix it, please let us know :-) */
-#ifdef ATT
-# define yukdollar(x) { int i; for(i=0;x[i];i++) if (x[i]=='$') x[i]=EOS; }
-  area=bp;
-  strncpy(bs,tgetstr("bc",&area),10);
-  strcpy(bs,"\b");      /* Hack to get bs to work with our system */
-  if ((wid=tgetnum("co"))==-1) wid=80;
-  wid--;
-  strncpy(cl,tgetstr("cl",&area),10);
-  yukdollar(cl);
-  strncpy(cd,tgetstr("cd",&area),10);
-  yukdollar(cd);
-  strncpy(nd,tgetstr("nd",&area),10);
-  yukdollar(nd);
-  strncpy(up,tgetstr("up",&area),10);
-  yukdollar(up);
-  strncpy(so,tgetstr("so",&area),10);
-  yukdollar(so);
-  strncpy(se,tgetstr("se",&area),10);
-  yukdollar(se);
-  strncpy(beep,tgetstr("bl",&area),10);
-  yukdollar(beep);
-  if (!strcmp(beep,"\007")) strcpy(beep,"\007");
-  beeplength=strlen(beep);
-  /* vset("beep",beep); */
-#ifdef DEBUG
-  printctrl("bs",bs);
-  printctrl("cl",cl);
-  printctrl("cd",cd);
-  printctrl("nd",nd);
-  printctrl("up",up);
-  printctrl("so",so);
-  printctrl("se",se);
-  printctrl("beep",beep);
-#endif
- 
-#else
-  if (tflagexist("bs",termcapbuf))
+  if (tgetflag("bs")==1)
     { bs[0]='\b'; bs[1]='\0'; }
   else gettstring("bc",bs);
   if ((wid=tgetnum("co"))==-1) wid=80;
@@ -196,9 +167,17 @@ void terminal()
   gettstring("up",up);
   gettstring("so",so);
   gettstring("se",se);
-  if (!gettstring("bl",beep))
-    strcpy(beep,"\007");
+  gettstring("bl",beep);
+  if (*beep==EOS) strcpy(beep,"\007");
   beeplength=strlen(beep);
-  /* vset("beep",beep); */
+#ifdef DEBUG
+  printctrl("bs",bs);
+  printctrl("cl",cl);
+  printctrl("cd",cd);
+  printctrl("nd",nd);
+  printctrl("up",up);
+  printctrl("so",so);
+  printctrl("se",se);
+  printctrl("beep",beep);
 #endif
 }
