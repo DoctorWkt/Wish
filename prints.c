@@ -1,7 +1,7 @@
 #include "header.h"
 
 #define	MAXDIG		11	/* 32 bits in radix 8 */
-#define TRUNC_SIZE 128
+#define TRUNC_SIZE 1024
 static char Buf[TRUNC_SIZE], *Bufp;
 static char Intbuf[MAXDIG];
 static int *Valp;

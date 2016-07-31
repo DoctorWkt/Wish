@@ -229,14 +229,98 @@ void tilde(word,dir)
    }
   else
    { a=strchr(word,'/');
-     if (a!=NULL) *a=0;
+     if (a!=NULL) *a=EOS;
      entry=getpwnam(word);
    }
   endpwent();
-  if (entry==NULL) { *dir=0; return; }
+  if (entry==NULL) { *dir=EOS; return; }
   strcpy(dir,entry->pw_dir);		/* Form the real partial name */
   if (a!=NULL) { *a='/'; strcat(dir,a); }
  }
+
+/* Dollar expands a variable. It takes a pointer to a candidiate, and a 
+ * pointer to the $ sign in the candidiate, and replaces it with the
+ * variable's value.
+ */
+void dollar(cand, doll)
+ struct candidate *cand;
+ char *doll;
+ {
+  extern int Argc;
+  extern char **Argv;
+  char *start, *end="", *value, *EVget();
+  char c=EOS;
+  unsigned int length, base, mall=0;	/* Mall is 1 if we've malloc'd */
+
+  *(doll++)=EOS;			/* Remove the $ sign */
+
+  if (!strcmp(doll,"$"))		/* Replace with pid */
+   {
+    value= (char *)malloc(10); length=getpid();
+    if (value) { sprints(value,"%d",length); mall=1; }
+   }
+  else if (!strcmp(doll,"#"))		/* Replace with # of args */
+   {
+    value= (char *)malloc(10); length=getpid();
+    if (value) { sprints(value,"%d",Argc-1); mall=1; }
+   }
+  else if (!strcmp(doll,"0"))		/* Replace with Argv[0] */
+   {
+    value= Argv[0];
+   }
+  else if (!strcmp(doll,"@"))		/* Insert all args into carray */
+   {
+      base=ncand;			/* Save start of expansion */
+      ncand += (Argc-1);
+      carray[ncand-1].next=cand->next;
+      carray[ncand-1].name= Argv[Argc-1];
+      carray[ncand-1].mode= FALSE;
+      cand->next=&carray[base];
+      for (length=1;base<ncand-1;base++,length++)
+       { carray[base].name= Argv[length];
+         carray[base].mode= FALSE;
+         carray[base].next=&carray[base+1];
+       }
+      if (cand->mode==TRUE) { free(cand->name); cand->mode=FALSE; }
+      cand->name=NULL;
+     return;
+    }
+  else if ((length=atoi(doll))!=0)	/* Replace with Argv[i] */
+   {
+    value= Argv[length];
+   }
+  else 
+   {					 /* Find the last char of the var */
+    for (end= doll; end!=EOS && isalnum(*end); end++);
+    c= *end; *end=EOS;			/* Terminate the name */
+    value= EVget(doll);			/* Get the value */
+    if (!value) fprints(2,"No such variable: %s\n",doll);
+   }
+#ifdef DEBUG
+if (value) prints("Found variable $%s, value %s\n",doll,value);
+#endif
+
+  if (*(cand->name)==EOS && c==EOS && !mall)	/* If only the variable */
+   {
+    if (cand->mode==TRUE) free(cand->name); /* we can replace totally */
+    cand->name= value;
+    cand->mode= FALSE;
+   }
+  else
+   {					/* insert the value */
+    *end=c; if (!value) value="";
+    length= strlen(cand->name) + strlen(value) + strlen(end) + 1;
+    start= (char *)malloc(length);
+    if (start) { strcpy(start,cand->name);
+		 strcat(start,value);
+		 strcat(start,end);
+	       }
+    if (cand->mode==TRUE) free(cand->name);
+    cand->name= start;
+    cand->mode= TRUE;
+   }
+ }
+ 
 
 /* Expline takes a linked list of words, and converts them into a normal
  * string. This is used to save history.
@@ -260,14 +344,14 @@ char *expline(list)
 	a+= strlen(q->name);
 	*(a++)=' ';
        }
-    *(--a)='\0';
+    *(--a)=EOS;
    }
   return(out);
  }
 
 /* Meta_1 takes the user's input line, and builds a linked list of words
- * in the carray. It also expands tildes. If start==TRUE, the carray is
- * made empty. i.e when called from main, use TRUE.
+ * in the carray. It also expands tildes and history. If start==TRUE, the
+ * carray is made empty. i.e when called from main, use TRUE.
  */
 void meta_1(old,start)
  char *old;
@@ -281,8 +365,8 @@ void meta_1(old,start)
   if (start==TRUE) { ncand=0; wordlist=carray; }
   while(1)						/* Parse each word */
    {
-    for (a=old;*a!=' '&&*a!='\t'&&*a!='\n'&&*a!=0;a++);	/* Find a space */
-    c= *a; *a=0; *tildir=0;				/* Null term the word */
+    for (a=old;*a!=' '&&*a!='\t'&&*a!='\n'&&*a!=EOS;a++);/* Find a space */
+    c= *a; *a=EOS; *tildir=EOS;				/* Null term the word */
     switch (*old)
      {
       case '!': b= gethist(++old);
@@ -314,17 +398,18 @@ void meta_1(old,start)
  }
 
 
-/* Meta_2 copies the old line to the new, expanding metachars */
+/* Meta_2 copies the old line to the new, expanding * ? [] and $ */
 void meta_2()
  {
   extern int compare();
   char dir[MAXWL];
   struct candidate *curr, *a;
+  char *b;
   int base;
 
   for(curr=carray;curr!=NULL;)
    {
-    if (strpbrk(curr->name,"*?[\\"))	/* If we find these */
+    if (strpbrk(curr->name,"*?[\\"))		/* If we find these */
      {
       base=ncand;				/* Save start of expansion */
       dir[0]=EOS; finddir(curr->name,dir);	/* expand them */
@@ -340,8 +425,11 @@ void meta_2()
       if (curr->mode==TRUE) { free(curr->name); curr->mode=FALSE; }
       curr->name=NULL;
       curr=a;
+      continue;
      }
-    else curr=curr->next;
+    if ((b=strchr(curr->name,'$')))			/* If a variable */
+      dollar(curr,b);					/* expand it */
+    curr=curr->next;
    }
 #define DEBUG
 #ifdef DEBUG

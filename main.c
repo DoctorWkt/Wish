@@ -1,5 +1,7 @@
 #include "header.h"
 
+int Argc;
+char **Argv;
 char linebuf[1000];
 char *prompt;
 int lenprompt;
@@ -19,7 +21,9 @@ void leave_shell()
   exit(0);
  }
 
-main()
+main(argc, argv)
+ int argc;
+ char *argv[];
  {
   extern struct candidate carray[];
   extern char currdir[], *parsebuf;
@@ -36,6 +40,8 @@ main()
         EVset("cwd",currdir);
   else write(2,"Can't get cwd properly\n",23);
 
+  Argc= argc;				/* Set up arg variables */
+  Argv= argv;
   catchsig();				/* Catch signals */
 #ifdef JOB
  /* setownterm(getpid());		/* We own the terminal */

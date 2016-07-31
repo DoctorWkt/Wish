@@ -11,7 +11,7 @@ char *malloc(), *realloc();
 static struct varslot {
 	char *name;		/* Variable name */
 	char *val;		/* Variable's value */
-	bool exported;	/* To be exported? */
+	bool exported;		/* To be exported? */
 	} sym[MAXVAR];
 
 static struct varslot *find(name)	/* Find a symbol table entry */
@@ -88,14 +88,13 @@ bool EVinit()		/* Initialise symtable from environment */
  {
   extern char **environ;
   int i,namelen;
-  char name[20];
+  char *name, *val;
 
   for (i=0; environ[i]!=NULL; i++)
    {
-    namelen=strcspn(environ[i],"=");
-    strncpy(name,environ[i],namelen);
-    name[namelen]='\0';
-    if (!EVset(name,&environ[i][namelen+1]) || !EVexport(name))
+    name=environ[i]; val=strchr(name,'=');
+    *(val++)='\0';
+    if (!EVset(name,val) || !EVexport(name))
       return(FALSE);
    }
   return(TRUE);
@@ -132,14 +131,23 @@ bool EVupdate()		/* Build envp from symbol table */
   return(TRUE);
  }
 
-void EVprint()		/* Print environment */
+void EVprint(envonly)		/* Print environment */
+ int envonly;
  {
   int i;
 
-  for (i=0; i<MAXVAR; i++)
-    if (sym[i].name!=NULL)
-      prints("%d %3s %s=%s\n",i,sym[i].exported ? "[E]" : "",
-		sym[i].name,sym[i].val);
+  if (envonly)
+   {
+    for (i=0; i<MAXVAR; i++)
+      if (sym[i].name!=NULL && sym[i].exported)
+        prints("%s=%s\n",sym[i].name,sym[i].val);
+   }
+  else
+   {
+    for (i=0; i<MAXVAR; i++)
+      if (sym[i].name!=NULL)
+        prints("%s=%s\n",sym[i].name,sym[i].val);
+   }
  }
 
 
@@ -160,12 +168,13 @@ void asg(argc,argv)		/* Assignment command */
  }
 
 
-void set(argc,argv)		/* Set command */
+void list(argc,argv)		/* Set command */
  int argc;
  char *argv[];
  {
-  if (argc!=1) prints("Extra args\n");
-  else EVprint();
+  if (argc>2 || (argc==2 && strcmp(argv[1],"env")))
+    prints("Usage: list [env]\n");
+  else EVprint(argc-1);
  }
 
 
@@ -175,8 +184,22 @@ void export(argc,argv)		/* Export command */
  {
   int i;
 
-  if (argc==1) { set(argc,argv); return; }
-  for (i=0; i<argc; i++)
-    if (!EVexport(argv[i]))
-     { prints("Can't export %s\n",argv[i]); return; }
+  if (argc<2) { prints("Usage: export var [var] ...\n");  return; }
+  for (i=1; i<argc; i++)
+     if (!EVexport(argv[i]))
+       { prints("Can't export %s\n",argv[i]); return; }
+ }
+
+void shift(argc,argv)
+ int argc;
+ char *argv[];
+ {
+  extern int Argc;
+  extern char **Argv;
+  int i=1;
+
+  if (argc>2) { prints("Usage: shift [val]\n"); return; }
+  if (argc==2) i=atoi(argv[1]);
+  Argv += i;
+  Argc -= i;
  }

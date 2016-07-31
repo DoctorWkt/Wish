@@ -29,12 +29,14 @@ bool builtin(argc,argv)		/* Do builtin */
 		asg(argc,argv);
   else if (!strcmp(argv[0],"export"))
 		export(argc,argv);
-  else if (!strcmp(argv[0],"set"))
-		set(argc,argv);
+  else if (!strcmp(argv[0],"list"))
+		list(argc,argv);
   else if (!strcmp(argv[0],"history"))
 		history(argc,argv);
   else if (!strcmp(argv[0],"echo"))
 		echo(argc,argv);
+  else if (!strcmp(argv[0],"shift"))
+		shift(argc,argv);
 #ifdef JOB
   else if (!strcmp(argv[0],"bg"))
 		bg(argc,argv);
