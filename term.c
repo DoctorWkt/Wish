@@ -4,13 +4,12 @@ int beeplength;
 
 /* This file contains routines for setting the terminal characteristics,
  * and for getting the termcap strings.
+ *
+ * The termcap globals should be put in here too.
  */
 
 void setcbreak()	/* Set terminal to cbreak mode */
 {
-#ifdef JOB
-  extern void checkjobs();
-#endif
   int i;
  
 #ifdef ATT

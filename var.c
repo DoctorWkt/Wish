@@ -1,4 +1,9 @@
 #include "header.h"
+
+/* Again, these routines are taken verbatim from `Advanced Unix Programming',
+ * but will be replaced with the real ones eventually.
+ */
+
 char *malloc(), *realloc();
 
 #define MAXVAR	40

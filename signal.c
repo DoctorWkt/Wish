@@ -1,11 +1,14 @@
 #include "header.h"
 
+/* Most of the functions that handle signals are kept in this file.
+ * Exceptions are some signal() calls done in job.c
+ */
+
 #define SIGTYPE void	/* One of int or void */
 
 void graceful(sig)	/* Catch signals gracefully */
   int sig;
 {
-
   fprints(2,"Received signal no %d\n",sig);
   exit(1);
 }
@@ -19,7 +22,7 @@ void catchsig()		/* Make us catch all signals */
   void stopjob();
 #endif
 
-  signal(SIGINT,SIG_IGN); 		/* For debugging */
+  signal(SIGINT,SIG_IGN); 		/* Taken out for debugging */
   signal(SIGQUIT,SIG_IGN);
 #ifdef NOTYET
   for (i=4; i<=MAXSIG; i++)
@@ -29,7 +32,7 @@ void catchsig()		/* Make us catch all signals */
    }
 #endif
 #ifdef JOB
-			/* Also catch these for job control */
+					/* Also catch these for job control */
   signal(SIGCHLD,checkjobs);
   signal(SIGTSTP,stopjob);
 #endif

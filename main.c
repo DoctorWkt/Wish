@@ -8,11 +8,15 @@ char linebuf[1000];
 char *prompt;
 int lenprompt;
 
+/* Print out the prompt */
 void prprompt()
  {
   prints("%s",prompt);
  }
 
+/* Set the terminal back to normal
+ * before leaving the shell
+ */
 void leave_shell()
  {
   setcooked();
@@ -22,28 +26,27 @@ void leave_shell()
 main()
  {
   extern FILE *zin, *zout;
-  extern int Headpid;		/* Head of the pipeline */
   extern char *parsebuf;
   extern char currdir[];
   char *EVget();
   int i,fd,pid,q;
   TOKEN term,command();
 
-  zin=stdin; zout=stdout;
+  zin=stdin; zout=stdout;		/* Set up out I/O */
 #ifdef UCB
-  if (getwd(currdir))
+  if (getwd(currdir))			/* Get the current directory */
 #else
   if (getcwd(currdir,MAXPL))
 #endif
         EVset("cwd",currdir);
   else write(2,"Can't get cwd properly\n",23);
 
-  catchsig();			/* Catch signals */
+  catchsig();				/* Catch signals */
 #ifdef JOB
  /* setownterm(getpid());		/* We own the terminal */
-  settou();			/* and want TTOU for children */
+  settou();				/* and want TTOU for children */
 #endif
-  terminal();			/* Get the termcap strings */
+  terminal();				/* Get the termcap strings */
   if (!EVinit()) fatal("Can't initialise environment");
   if ((prompt=EVget("PS2"))==NULL) prompt="> ";
   lenprompt=strlen(prompt);
@@ -52,24 +55,23 @@ main()
   while(1)
    {						/* Run a command */
     for (i=0; i<1000; i++) linebuf[i]=0;
-    setcbreak();			/* Set cbreak mode */
+    setcbreak();				/* Set cbreak mode */
     if (getline(linebuf,&q,FALSE)==TRUE)	/* Get a line from user */
      {
       parsebuf=linebuf;
       setcooked();
-      term=command(&pid,FALSE,NULL);
+      term=command(&pid,FALSE,NULL);		/* Actually run it here */
 #ifdef DEBUG
       fprints(2,"Got pid %d %d %d\n",pid,Headpid,term);
 #endif
-      if (pid && term!=T_AMP) Headpid=pid;
-      if (term!=T_AMP && Headpid!=0)
-	waitfor(Headpid);			/* Wait for it to finish */
+      if (term!=T_AMP)				/* If we should wait on it */
+	waitfor(pid);				/* Wait for it to finish */
 #ifdef JOB
-      joblist();
+      joblist(0);				/* print the list of jobs */
 #endif
      }
-    prprompt();
-    				/* and close any leftover file descs */
+    prprompt();					/* Print the prompt again */
+ 		   				/* & close any leftover fds */
     for (fd=3; fd<20; fd++) (void)close(fd);
    }
  }

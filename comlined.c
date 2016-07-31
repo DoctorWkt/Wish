@@ -1,11 +1,3 @@
-/*****************************************************************************
-**                                                                          **
-**          The Clam Shell is Copyright (C) 1988 by Callum Gibson.          **
-**       This file is part of Clam Shell. You may freely use, copy and      **
-**     distribute it, but if you alter any source code do not distribute    **
-**   the altered copy. i.e. you may alter this file for your own use only.  **
-**                                                                          **
-*****************************************************************************/
 /******************************************************************************
 **                                                                           **
 **                                comlined.c                                 **
@@ -71,7 +63,7 @@ static int Keylength=0;			/* The maximum key length */
 static struct keybind *Bindhead=NULL;	/* List of bindings */
 
 #ifdef NOTYET
-#ifdef __STDC__
+#ifdef PROTO
 void Bind ( int argc , char *argv [])
 #else
 void Bind(argc, argv)
@@ -120,7 +112,7 @@ void Bind(argc, argv)
    }
  }
 
-#ifdef __STDC__
+#ifdef PROTO
 void unbind ( int argc , char *argv [])
 #else
 void unbind(argc,argv)
@@ -151,7 +143,7 @@ void unbind(argc,argv)
  }
 #endif	/* NOTYET */
 
-#ifdef __STDC__
+#ifdef PROTO
 static int getcomcmd ( FILE *z )
 #else
 static int getcomcmd(z) /* Get either a character or a command from the */

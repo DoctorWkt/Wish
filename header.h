@@ -1,3 +1,9 @@
+/* This is at the moment a sever mangle of the Clam header.h
+ * I will tidy it up one day.
+ * Note most structures are in the files where they need it, unless
+ * routines from different files need the structs.
+ */
+
 #include <stdio.h>
 #include <ctype.h>
 #include <signal.h>
@@ -85,7 +91,7 @@ typedef enum {T_WORD,T_BAR,T_AMP,T_SEMI,T_GT,T_GTGT,T_LT, T_NL,T_EOF} TOKEN;
 /* Execution */
 
 /* The how parameter to execute() indicates how the process should be
- * executed.
+ * executed. Most of the bits are currently defined but not used.
  */
 
 #define H_APPEND        001             /* Process will append to outfd */
@@ -94,7 +100,6 @@ typedef enum {T_WORD,T_BAR,T_AMP,T_SEMI,T_GT,T_GTGT,T_LT, T_NL,T_EOF} TOKEN;
 #define H_PIPEDOUT      010             /* Process has piped output */
 #define H_FROMFILE      020             /* Process has file input */
 #define H_TOFILE        040             /* Process has file output */
-#define H_PARENT	100		/* Process is parent of pipeline */
  
 /* Redirection */
 

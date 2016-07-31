@@ -1,11 +1,3 @@
-/*****************************************************************************
-**                                                                          **
-**          The Clam Shell is Copyright (C) 1988 by Callum Gibson.          **
-**       This file is part of Clam Shell. You may freely use, copy and      **
-**     distribute it, but if you alter any source code do not distribute    **
-**   the altered copy. i.e. you may alter this file for your own use only.  **
-**                                                                          **
-*****************************************************************************/
 /******************************************************************************
 **                                                                           **
 **                                prints.c                                   **
