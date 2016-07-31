@@ -9,6 +9,10 @@
 #define NULL ((void *)0)
 #endif
 
+#ifndef MAXSIG
+#define MAXSIG 27
+#endif
+
 #define BADFD -2
 #define MAXARG 30
 #define MAXWORD 200

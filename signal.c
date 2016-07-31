@@ -32,7 +32,7 @@ void entrysig()		/* restore int and quit */
  }
 
 
-void graceful(sig)
+void graceful(sig)	/* Catch signals gracefully */
   int sig;
 {
 
@@ -41,18 +41,22 @@ void graceful(sig)
 }
 
 
-void setup()
+void setup()		/* Make us catch all signals */
  {
   int i;
+#ifdef JOB
   void checkjobs();
   void stopjob();
+#endif
 
-  for (i=4; i<=27; i++)
+  for (i=4; i<=MAXSIG; i++)
    {
       if (i != SIGKILL) /* SIGKILL cannot be caught or ignored */
           signal(i,graceful);
    }
-  /* signal(SIGCHLD,checkjobs); */
-  signal(SIGCHLD,SIG_IGN);
+#ifdef JOB
+			/* Also catch these for job control */
+  signal(SIGCHLD,checkjobs);
   signal(SIGTSTP,stopjob);
+#endif
  }
