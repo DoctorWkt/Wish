@@ -3,17 +3,27 @@
 /* This is taken almost verbatim from `Advanced Unix Programming'
  */
 
-char *parsebuf;			/* The buffer we are parsing */
+extern struct candidate carray[];	/* The buffer we are parsing */
+static int thisword;			/* The word we are parsing */
 
-static TOKEN gettoken(word)	/*correct and classify token*/
+static TOKEN gettoken(word)	/* Correct and classify token */
  char *word;  
  {
   enum {NEUTRAL,GTGT,INQUOTE,INWORD} state=NEUTRAL;
-  int c; char *w;  
+  int c; char *w, *x;  
 
-  w=word;
-  while((c= *(parsebuf++))!=0)
+  w=word; x=carray[thisword].name;
+  if (x==NULL)
+    if (thisword==0) return(T_EOF); else return(T_NL);
+  while(1)
    {
+    c= *(x++);
+    if (c==0)
+     {
+      c= ' ';
+      x=carray[++thisword].name;
+      if (thisword==MAXCAN || x==NULL) c='\n';
+     }
     switch(state)
      {
       case NEUTRAL: switch(c)
@@ -34,11 +44,11 @@ static TOKEN gettoken(word)	/*correct and classify token*/
 				 continue;
 		     }
       case GTGT:    if (c=='>') return(T_GTGT);
-		    parsebuf--;
+		    x--;
 		    return(T_GT);
       case INQUOTE: switch(c)
 		     {
-		      case '\\' : *w++= *(parsebuf++);
+		      case '\\' : *w++= *(x++);
 				  continue;
 		      case '"':   *w='\0';
 				  return(T_WORD);
@@ -54,7 +64,7 @@ static TOKEN gettoken(word)	/*correct and classify token*/
 		      case '>':
 		      case ' ':
 		      case '\n':
-		      case '\t': parsebuf--;
+		      case '\t': x--;
 				 *w='\0';
 				 return(T_WORD);
 		      default:   *w++=c;
@@ -62,11 +72,11 @@ static TOKEN gettoken(word)	/*correct and classify token*/
 		     }
      }
    }
-  return(T_EOF);
+  return(T_NL);
  }
 
 
-/* Command parses parsebuf and calls invoke() to redirect and execute
+/* Command parses the input and calls invoke() to redirect and execute
  * each simple command in the parsebuf. It returns the pid to wait on
  * in waitpid, or 0 if no pid to wait on, as well as the token that ended
  * the pasebuf. This routine is recursive, and when passed makepipe=TRUE,
@@ -87,7 +97,7 @@ TOKEN command(waitpid,makepipe,pipefdp)	/* Do simple command */
 #define srcfd newfd.infd
 #define dstfd newfd.outfd
 
-  argc=0; srcfd=0; dstfd=1;
+  argc=0; srcfd=0; dstfd=1; thisword=0;
   while(1)
    {
     switch(token=gettoken(word))

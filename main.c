@@ -5,7 +5,7 @@
 #endif
 
 char linebuf[1000];
-char linebuf2[1000];
+char l2[1000];
 char *prompt;
 int lenprompt;
 
@@ -27,7 +27,6 @@ void leave_shell()
 main()
  {
   extern FILE *zin, *zout;
-  extern char *parsebuf;
   extern char currdir[];
   char *EVget();
   int i,fd,pid,q;
@@ -55,12 +54,12 @@ main()
 
   while(1)
    {						/* Run a command */
-    for (i=0; i<1000; i++) linebuf[i]=linebuf2[i]=0;
+    for (i=0; i<1000; i++) linebuf[i]=0;
     setcbreak();				/* Set cbreak mode */
     if (getuline(linebuf,&q,FALSE)==TRUE)	/* Get a line from user */
      {
-      meta_2(linebuf,linebuf2);			/* Expand metachars */
-      parsebuf=linebuf2;			/* Point parser to line */
+      strcpy(l2,linebuf);
+      meta_2(l2);				/* Expand metachars */
       setcooked();
       term=command(&pid,FALSE,NULL);		/* Actually run it here */
 #ifdef DEBUG

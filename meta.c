@@ -4,7 +4,8 @@
 #define NX_ERR -1
 #define BR_ERR -2
 
-static char *new;
+extern struct candidate carray[];	/* The matched files */
+static int numcand;
 
 /* Match takes a string, and a pattern, which can contain *, ? , \ and [],
  * and returns 0 if the strings matched the pattern, otherwise a negative
@@ -18,11 +19,6 @@ int match(string,pattern,accumdir)
 {
   char c,*findex,*pindex,*fmatch,*pmatch,rempat[MAXWL],where[MAXPL];
   int i,mismatch,found,star;
-#ifdef DEBUG
-prints("String is >%s<\n",string);
-prints("Pattern is >%s<\n",pattern);
-prints("Accumdir is >%s<\n",accumdir);
-#endif
 
   findex=string;			/* Initialise our vars */
   pindex=pattern;
@@ -119,14 +115,12 @@ prints("Accumdir is >%s<\n",accumdir);
       strcat(where,"/");
     }
     strcat(where,string);
-#ifdef DEBUG
-prints("Found a match >%s<\n",where);
-#endif
-    /* if (mindex==MAXMATCH) return(OK); */
-    /* matches[mindex]=(char *) malloc ((unsigned)(strlen(where)+1));
-    if (matches[mindex]) */
-       strcat(new,where);
-    while (*new) new++; *(new++)=' ';		/* add the space back */
+    if (numcand==MAXCAN) return(OK);
+    carray[numcand].name=(char *) malloc ((unsigned)(strlen(where)+4));
+    if (carray[numcand].name==NULL) return(OK);
+    strcpy(carray[numcand].name,where);
+    carray[numcand++].mode=TRUE;		/* Was malloc'd */
+    
     return(OK);
   }
   else
@@ -164,9 +158,6 @@ int matchdir(directory,pattern)
 #endif
   int foundany=0;
 
-#ifdef DEBUG
-prints("In matchdir, dir is >%s< pat is >%s<\n",directory,pattern);
-#endif
   if (*directory!=EOS)
   {
     if ((dirp=opendir(directory))==NULL)
@@ -219,34 +210,33 @@ void finddir(word,dir)
 
 
 /* Meta_2 copies the old line to the new, expanding metachars */
-void meta_2(o,n)
- char *o, *n;
+void meta_2(o)
+ char *o;
  {
+  extern int compare();
   char dir[MAXWL];
   char *a;
+  int base;
 
-  new=n;
-
+  numcand=0;
   while(*o!=0)					/* Parse each word */
    {
-#ifdef DEBUG
-prints("O is now >%s<\n",o);
-#endif
-    for (a=o;*a!=' ' && *a!='\n' && *a!=0;a++);	/* Find a space */
+    for (a=o;*a!=' '&&*a!='\t'&&*a!='\n'&&*a!=0;a++);	/* Find a space */
     *a=0;					/* Null term the word */
     if (strpbrk(o,"*?[\\"))			/* If we find these */
      {
+      base=numcand;				/* Save start of expansion */
       dir[0]=EOS; finddir(o,dir);		/* expand them */
-      matchdir(dir,o);
+      if (!matchdir(dir,o))
+        qsort((char *)&carray[base],numcand-base,sizeof(struct candidate),compare);
      }
     else
-      strcat(new,o);				/* just copy old to new */
+     {  carray[numcand].name=o;			/* just copy old to new */
+	carray[numcand++].mode=FALSE;		/* (not malloc'd) */
+	if (numcand==MAXCAN) break;
+     }
 
-    o= ++a;
-    while (*new) new++; *(new++)=' ';		/* add the space back */
-#ifdef DEBUG
-prints("New is >%s<\n",n);
-#endif
+    for (o=++a; *o==' '&& *o=='\t'; o++);	/* Bypass whitespace */
    }
-  *(new++)='\n';
+  carray[numcand].name=NULL;
  }

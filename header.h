@@ -93,8 +93,18 @@ typedef enum {T_WORD,T_BAR,T_AMP,T_SEMI,T_GT,T_GTGT,T_LT, T_NL,T_EOF} TOKEN;
 #define lowbyte(w) ((w) & 0377)
 #define highbyte(w) lowbyte((w) >> 8)
 
-/* Execution */
+/* Clex and Meta */
+/* The following structure is used by both clex.c and meta.c. The former
+ * uses it to hold candidates files that matched a ^D or <tab> expression.
+ * The latter uses it to hold files that match *,? and [] metacharacters.
+ */
 
+struct candidate
+	{ char *name;		/* The file's name */
+	  int mode;		/* File's mode (clex), or malloc'd bool */
+	};
+
+/* Execution */
 /* The how parameter to execute() indicates how the process should be
  * executed. Most of the bits are currently defined but not used.
  */
@@ -107,7 +117,6 @@ typedef enum {T_WORD,T_BAR,T_AMP,T_SEMI,T_GT,T_GTGT,T_LT, T_NL,T_EOF} TOKEN;
 #define H_TOFILE        040             /* Process has file output */
  
 /* Redirection */
-
 /* The rdrct structure holds the new file descriptors for the process,
  * and their file names (if any). If a file descriptor is negative, the
  * respective file must be opened. If the fd values are not 0,1 and 2,

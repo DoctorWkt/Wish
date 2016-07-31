@@ -1,17 +1,10 @@
 #include "header.h"
 
-/* Given a word, fill up an array of partial matches to that word */
-
-struct candidate { int mode;
-		   char *name;
-	};
+struct candidate carray[MAXCAN];
+static int numcand,maxlen;
 
 
-static struct candidate carray[MAXCAN];
-int numcand,maxlen;
-
-
-static int compare(a,b)
+int compare(a,b)
   struct candidate *a,*b;
 {
   return(strcmp(a->name,b->name));
@@ -167,6 +160,8 @@ static void findpasswd(word)
  char *word;
  {
   int i,j;
+  char dir[MAXWL];
+  char *a;
 
   struct passwd *entry;
 
@@ -174,6 +169,17 @@ static void findpasswd(word)
     i=strlen(word);
   else i=0;
 
+  if ((a=strchr(word,'/'))!=NULL)	/* We have to find a file */
+   {
+    *a=0; entry=getpwnam(word);
+    endpwent();
+    if (entry==NULL) return;
+    strcpy(dir,entry->pw_dir);		/* Form the real partial name */
+    *a='/';
+    strcat(dir,a);
+    findfile(dir);
+    return;
+   }
   while((entry=getpwent())!=NULL && numcand<MAXCAN)
    {
     if (i==0 || !strncmp(entry->pw_name,word,i))
