@@ -13,6 +13,8 @@ bool builtin(argc,argv)		/* Do builtin */
 		export(argc,argv);
   else if (!strcmp(argv[0],"set"))
 		set(argc,argv);
+  else if (!strcmp(argv[0],"history"))
+		history(argc,argv);
 #ifdef JOB
   else if (!strcmp(argv[0],"bg"))
 		bg(argc,argv);

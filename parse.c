@@ -19,6 +19,7 @@ static TOKEN gettoken(word)	/* Correct and classify token */
     if (c==0)
      {
       c= ' ';
+      if (curr->mode==TRUE) free(curr->name);
       curr=curr->next;
       if (curr==NULL) c='\n';
       else x=curr->name;

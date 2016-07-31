@@ -5,7 +5,6 @@
 #endif
 
 char linebuf[1000];
-char l2[1000];
 char *prompt;
 int lenprompt;
 
@@ -28,6 +27,7 @@ main()
  {
   extern FILE *zin, *zout;
   extern char currdir[];
+  extern int curr_hist, maxhist;
   char *EVget();
   int i,fd,pid,q;
   TOKEN term,command();
@@ -58,9 +58,9 @@ main()
     setcbreak();				/* Set cbreak mode */
     if (getuline(linebuf,&q,FALSE)==TRUE)	/* Get a line from user */
      {
-      strcpy(l2,linebuf);
-      meta_1(l2);				/* Expand metachars */
-      meta_2(linebuf);				/* Expand metachars */
+      savehist(linebuf,curr_hist++,maxhist);	/* Save the line */
+      meta_1(linebuf,TRUE);			/* Expand metachars */
+      meta_2();					/* Expand metachars */
       setcooked();
       term=command(&pid,FALSE,NULL);		/* Actually run it here */
 #ifdef DEBUG

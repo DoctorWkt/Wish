@@ -829,9 +829,9 @@ bool getuline(line,nosave,feature_off)
   int *nosave,feature_off;
 {
   extern char beep[],yankbuf[];
-  extern int lenprompt,wid;
+  extern int lenprompt,wid,curr_hist,maxhist;
   char remline[MAXLL];
-  int c,times=1,i,pos=0,curs[2],
+  int c,times=1,i,pos=0,curs[2],hist=curr_hist,
       hsave=lenprompt,vsave=0,possave=0,try=0;
   int beeplength=strlen(beep);
 
@@ -885,7 +885,7 @@ bool getuline(line,nosave,feature_off)
 		 break;
       case KILLALL: go(curs,lenprompt,0);		/* goto start */
 		 clrline(line,0,curs);		/* and kill from pos=0 */
-		 /* hist=curr_hist;		/* reset hist */
+		 hist=curr_hist;		/* reset hist */
 		 hsave=curs[0];			/* save position (make mark) */
 		 vsave=curs[1];
 		 for (pos=0;pos<MAXLL;pos++) line[pos]=EOS;
@@ -905,12 +905,29 @@ bool getuline(line,nosave,feature_off)
 		 break;
       case FINISH: goend(line,&pos,curs);
 		 write(fileno(zout),"\n",1);
-		 line[pos++]='\n';
+		 line[pos++]=EOS;
 		 if (feature_off) return(TRUE);
 		 *nosave=strip(line);			/* process it now */
 		 if (line[0]!=EOS)
 		   return(TRUE);
 		 else return(FALSE);
+      case NEXTHIST: if (feature_off) break;
+		 if (hist<curr_hist)		/* put next hist in line buf */
+		   loadhist(line,&pos,++hist,curs);
+		 else /* if (hist==curr_hist)
+		      	tardis(line,&pos,curs);
+		      else */
+			write(1,beep,beeplength);
+		 break;
+      case BACKHIST: if (feature_off) break;
+		 if (hist>curr_hist-maxhist && hist>1)	/* put prev hist in line buf */
+		 {
+		   if (hist==curr_hist)
+		     (void) savehist(line,curr_hist,maxhist);
+		   loadhist(line,&pos,--hist,curs);
+		 }
+		 else write(1,beep,beeplength);
+		 break;
       case KILLEOL: clrline(line,pos,curs);	/* kill line from cursor on */
 		 break;
       case REDISP:

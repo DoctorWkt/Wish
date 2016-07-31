@@ -240,43 +240,48 @@ void tilde(word,dir)
 
 
 /* Meta_1 takes the user's input line, and builds a linked list of words
- * in the carray. It also expands tildes.
+ * in the carray. It also expands tildes. If start==TRUE, the carray is
+ * made empty. i.e when called from main, use TRUE.
  */
-void meta_1(old)
+void meta_1(old,start)
  char *old;
+ bool start;
  {
-  char *a;
+  char *a, *b;
+  char c;
   struct candidate *q;
   char tildir[MAXWL];
 
-  numcand=0; wordlist=carray;
-  while(*old!=0)				/* Parse each word */
+  if (start==TRUE) { numcand=0; wordlist=carray; }
+  while(1)						/* Parse each word */
    {
     for (a=old;*a!=' '&&*a!='\t'&&*a!='\n'&&*a!=0;a++);	/* Find a space */
-    *a=0;					/* Null term the word */
-    if (*old=='~')
+    c= *a; *a=0; *tildir=0;				/* Null term the word */
+    switch (*old)
      {
-      tilde(old,tildir);
-      if (*tildir!=0)				/* Append to the carray */
-       {
-        carray[numcand].name=(char *)malloc((unsigned)strlen(tildir)+4);
-        if (carray[numcand].name==NULL)
-         { carray[numcand].name=old;
-           carray[numcand++].mode=FALSE;
-         }
-        else 
-         { strcpy(carray[numcand].name,tildir);
-           carray[numcand++].mode=TRUE;
-         }
-       }
-     }
-    else
-     { carray[numcand].name=old;
-       carray[numcand++].mode=FALSE;		/* (not malloc'd) */
+      case '!': b= gethist(++old);
+		if (b) meta_1(b,FALSE);		/* Expand it too */
+		break;
+      case '~': tilde(old,tildir);
+		old=tildir;
+      default:					/* Append to the carray */
+		if (start==FALSE || *tildir)
+		 {
+      	          carray[numcand].name=(char *)malloc((unsigned) strlen(old)+4);
+        	  if (carray[numcand].name!=NULL)
+         	   { strcpy(carray[numcand].name,old);
+           	     carray[numcand++].mode=TRUE;
+         	   }
+		 }
+		else
+		 {
+		  carray[numcand].name=old;
+		  carray[numcand++].mode=FALSE;
+		 }
      }
     carray[numcand-1].next=&carray[numcand];	/* Join the linked list */
-    if (numcand==MAXCAN) break;
 
+    if (start==FALSE) *a=c; if (c==EOS || numcand==MAXCAN) break;
     for (old=++a; *old==' '&& *old=='\t'; old++); /* Bypass whitespace */
    }
   carray[numcand-1].next=NULL;			/* Terminate the linked list */
@@ -313,7 +318,7 @@ void meta_2()
     else curr=curr->next;
    }
 #ifdef DEBUG
-prints("meta_1: Here's the wordlist:\n");
+prints("meta_2: Here's the wordlist:\n");
 for (curr=carray; curr!=NULL; curr=curr->next)
   prints("--> %s\n",curr->name);
 #endif

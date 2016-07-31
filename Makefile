@@ -69,12 +69,12 @@ STACK = 30000
 #FINAL_TOUCHES= chmem '=$(STACK)' shell
 
 SRCS=   builtin.c clex.c comlined.c \
-	exec.c global.c job.c \
+	exec.c hist.c global.c job.c \
 	main.c meta.c parse.c prints.c \
 	signal.c term.c var.c
 
 OBJS=   builtin.$(O) clex.$(O) comlined.$(O) \
-	exec.$(O) global.$(O) job.$(O) \
+	exec.$(O) hist.$(O) global.$(O) job.$(O) \
 	main.$(O) meta.$(O) parse.$(O) prints.$(O) \
 	signal.$(O) term.$(O) var.$(O)
 
