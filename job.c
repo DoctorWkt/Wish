@@ -256,7 +256,7 @@ int addjob(pid,name)
   char *name;
 #endif
 {
-  extern char *cwd;
+  extern char currdir[];
   int jobno,diff=(-1);
   struct job *ptr,*old,*new;
   char execdir[MAXPL];
@@ -306,9 +306,9 @@ int addjob(pid,name)
   else
       perror("addjob");
   ptr->status.w_status=0;
-  ptr->dir=(char *) malloc ((unsigned)(strlen(cwd)+1));
+  ptr->dir=(char *) malloc ((unsigned)(strlen(currdir)+1));
   if (ptr->dir)
-    (void) strcpy(ptr->dir,cwd);
+    (void) strcpy(ptr->dir,currdir);
   else
     perror("addjob");
   ptr->lastmod=time((long *)0);
@@ -357,11 +357,26 @@ void bg(argc,argv)
  char *argv[];
  {
   int pid;
+  char *c;
 
-  if (argc!=2) prints("usage: bg pid\n");
+  if (argc>2) { prints("usage: bg [pid]\n"); return; }
+  if (argc==1)
+   {
+#ifdef DEBUG
+prints("Trying to use current job pointer\n");
+#endif
+    if (currentjob)
+    {
+      pid=currentjob->pid;
+    }
+   }
   else
    {
-    pid=atoi(argv[1]);
+    c= argv[1];
+    if (*c=='%') pid=pidfromjob(atoi(++c));
+    else pid=atoi(c);
+    if (pid<1)
+     { fprints(2,"No such job number: %s\n",c); return; }
     setpgrp(pid,pid);
 #ifdef DEBUG
     prints("About to SIGCONT %d\n",pid);
@@ -374,12 +389,29 @@ void fg(argc,argv)
  int argc;
  char *argv[];
  {
+  extern char currdir[];
   int pid;
+  struct job *ptr;
+  char *c;
 
-  if (argc!=2) prints("usage: fg pid\n");
+  if (argc>2) { prints("usage: fg [pid]\n"); return; }
+  if (argc==1)
+   {
+#ifdef DEBUG
+prints("Trying to use current job pointer\n");
+#endif
+    if (currentjob)
+    {
+      pid=currentjob->pid;
+    }
+   }
   else
    {
-    pid=atoi(argv[1]);
+    c= argv[1];
+    if (*c=='%') pid=pidfromjob(atoi(++c));
+    else pid=atoi(c);
+    if (pid<1)
+     { fprints(2,"No such job number: %s\n",c); return; }
 #ifdef DEBUG
     prints("About to setpgrp pid%d to us\n",pid);
 #endif
@@ -389,6 +421,13 @@ void fg(argc,argv)
     prints("About to SIGCONT %d\n",pid);
 #endif
     kill(pid,SIGCONT);
+
+    ptr=findjob(pid);
+    if (strcmp(ptr->dir,currdir))		/* If directory has changed */
+      fprints(2,"[%d] %d %s (wd now: %s)\n",ptr->jobnumber,ptr->pid,
+							ptr->name,ptr->dir);
+    else
+      fprints(2,"[%d] %d %s\n",ptr->jobnumber,ptr->pid,ptr->name);
     Headpid=pid;
    }
  }

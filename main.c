@@ -24,16 +24,23 @@ main()
   extern FILE *zin, *zout;
   extern int Headpid;		/* Head of the pipeline */
   extern char *parsebuf;
-  extern char *cwd;
+  extern char currdir[];
   char *EVget();
   int i,fd,pid,q;
   TOKEN term,command();
 
   zin=stdin; zout=stdout;
-  cwd="/wherever";
+#ifdef UCB
+  if (getwd(currdir))
+#else
+  if (getcwd(currdir,MAXPL))
+#endif
+        EVset("cwd",currdir);
+  else write(2,"Can't get cwd properly\n",23);
+
   catchsig();			/* Catch signals */
 #ifdef JOB
-  setownterm(getpid());		/* We own the terminal */
+ /* setownterm(getpid());		/* We own the terminal */
   settou();			/* and want TTOU for children */
 #endif
   terminal();			/* Get the termcap strings */
