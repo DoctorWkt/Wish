@@ -1,13 +1,15 @@
 #include "header.h"
 
-static TOKEN gettoken(word) /*correct and classify token*/
+char *parsebuf;			/* The buffer we are parsing */
+
+static TOKEN gettoken(word)	/*correct and classify token*/
  char *word;  
  {
   enum {NEUTRAL,GTGT,INQUOTE,INWORD} state=NEUTRAL;
   int c; char *w;  
 
   w=word;
-  while((c=getchar())!=EOF)
+  while((c=*(parsebuf++))!=0)
    {
     switch(state)
      {
@@ -29,11 +31,11 @@ static TOKEN gettoken(word) /*correct and classify token*/
 				 continue;
 		     }
       case GTGT:    if (c=='>') return(T_GTGT);
-		    ungetc(c,stdin);
+		    parsebuf--;
 		    return(T_GT);
       case INQUOTE: switch(c)
 		     {
-		      case '\\' : *w++=getchar();
+		      case '\\' : *w++=*(parsebuf++);
 				  continue;
 		      case '"':   *w='\0';
 				  return(T_WORD);
@@ -49,7 +51,7 @@ static TOKEN gettoken(word) /*correct and classify token*/
 		      case '>':
 		      case ' ':
 		      case '\n':
-		      case '\t': ungetc(c,stdin);
+		      case '\t': parsebuf--;
 				 *w='\0';
 				 return(T_WORD);
 		      default:   *w++=c;
@@ -81,24 +83,24 @@ TOKEN command(waitpid,makepipe,pipefdp)	/* Do simple command */
     switch(token=gettoken(word))
      {
       case T_WORD: if (argc==MAXARG)
-		     { printf("Too many args\n"); break; }
+		     { fprints(2,"Too many args\n"); break; }
 		   if ((argv[argc]=malloc(strlen(word)+1))==NULL)
-		     { fprintf(stderr,"Out of arg memory\n"); break; }
+		     { fprints(2,"Out of arg memory\n"); break; }
 		   strcpy(argv[argc],word);
 		   argc++;
 		   continue;
 
       case T_LT:   if (makepipe)
-		     { fprintf(stderr,"Extra <\n"); break; }
+		     { fprints(2,"Extra <\n"); break; }
 		   if (gettoken(srcfile)!=T_WORD)
-		     { fprintf(stderr,"Illegal <\n"); break; }
+		     { fprints(2,"Illegal <\n"); break; }
 		   srcfd= BADFD;
 		   continue;
       case T_GT:
       case T_GTGT: if (dstfd!=1)
-		     { fprintf(stderr,"Extra > or >>\n"); break; }
+		     { fprints(2,"Extra > or >>\n"); break; }
 		   if (gettoken(dstfile)!=T_WORD)
-		     { fprintf(stderr,"Illegal > or >>\n"); break; }
+		     { fprints(2,"Illegal > or >>\n"); break; }
 		   dstfd= BADFD;
 		   if (token==T_GTGT) how |= H_APPEND;
 		   continue;
@@ -109,7 +111,7 @@ TOKEN command(waitpid,makepipe,pipefdp)	/* Do simple command */
 		   if (token==T_BAR)
 		    {
 		     if (dstfd!=1)
-		      { fprintf(stderr,"> or >> conflicts with |\n"); break; }
+		      { fprints(2,"> or >> conflicts with |\n"); break; }
 		     term=command(waitpid,TRUE,&dstfd);
 		    }
 		   else term=token;
@@ -122,14 +124,15 @@ TOKEN command(waitpid,makepipe,pipefdp)	/* Do simple command */
 		     }
 		   newfd.ifil=srcfile;
 		   newfd.ofil=dstfile;
-		   how |= (term==T_AMP);
+		   if (term==T_AMP) how |= H_BCKGND;
+		   if (token==T_SEMI || token==T_NL) how |= H_PARENT;
 		   pid=invoke(argc,argv,newfd,how);
 		   if (token!=T_BAR) *waitpid=pid;
 		   if (argc==0 && (token!=T_NL || srcfd>1))
-			fprintf(stderr,"Missing command\n");
+			fprints(2,"Missing command\n");
 		   while(--argc>=0) free(argv[argc]);
 		   return(term);
-      case T_EOF:  exit(0);
+      case T_EOF:  return(token);
      }
    }
  }

@@ -2,46 +2,16 @@
 
 #define SIGTYPE void	/* One of int or void */
 
-static SIGTYPE (*entryint)(),(*entryquit)();
-#ifndef BADSIG
-#define BADSIG (SIGTYPE (*)())-1	/* -1 cast to ptr to int function */
-#endif
-
-void ignoresig()		/* Ignore interrupt and quit */
- {
-  static BOOLEAN first=TRUE;
-
-  if (first)
-    {
-     first=FALSE;
-     entryint=signal(SIGINT,SIG_IGN);
-     entryquit=signal(SIGQUIT,SIG_IGN);
-     if (entryint==BADSIG || entryquit==BADSIG)
-	{ perror("signal"); exit(1); }
-    }
-  else if (signal(SIGINT,SIG_IGN)==BADSIG ||
-	   signal(SIGQUIT,SIG_IGN)==BADSIG)
-	{ perror("signal"); exit(1); }
- }
-
-void entrysig()		/* restore int and quit */
- {
-  if (signal(SIGINT,entryint)==BADSIG ||
-      signal(SIGQUIT,entryquit)==BADSIG)
-	{ perror("signal"); exit(1); }
- }
-
-
 void graceful(sig)	/* Catch signals gracefully */
   int sig;
 {
 
-  fprintf(stderr,"Received signal no %d\n",sig);
+  fprints(2,"Received signal no %d\n",sig);
   exit(1);
 }
 
 
-void setup()		/* Make us catch all signals */
+void catchsig()		/* Make us catch all signals */
  {
   int i;
 #ifdef JOB
@@ -49,9 +19,11 @@ void setup()		/* Make us catch all signals */
   void stopjob();
 #endif
 
+  /* signal(SIGINT,SIG_IGN); 		For debugging */
+  signal(SIGQUIT,SIG_IGN);
   for (i=4; i<=MAXSIG; i++)
    {
-      if (i != SIGKILL) /* SIGKILL cannot be caught or ignored */
+      if (i!=SIGKILL && i!=SIGCONT) /* SIGKILL cannot be caught or ignored */
           signal(i,graceful);
    }
 #ifdef JOB
@@ -60,3 +32,32 @@ void setup()		/* Make us catch all signals */
   signal(SIGTSTP,stopjob);
 #endif
  }
+
+void dflsig()		/* Uncatch all signals */
+ {
+  int i;
+
+  for (i=1; i<=MAXSIG; i++) signal(i,SIG_DFL);
+ }
+
+setownterm(pid)		/* Set the terminal's process group */
+ int pid;
+ {
+#ifdef UCB
+  if (pid)
+   {
+    if (ioctl(0,TIOCSPGRP,&pid)) perror("ioctl spg");
+   }
+#endif
+ }
+
+#ifdef JOB
+void settou()		/* Set terminal to force SIGTTOU */
+ {
+  struct termio tbuf;
+ 
+  if (ioctl(0,TCGETA,&tbuf)) perror("ioctl in settou");
+  tbuf.c_lflag |= TOSTOP;
+  if (ioctl(0,TCSETA,&tbuf)) perror("ioctl s");
+ }
+#endif

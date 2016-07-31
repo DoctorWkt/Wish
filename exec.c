@@ -25,6 +25,12 @@ redirect(newfd, oldfd, how)
 #define Oldout	oldfd->outfd
 #define Olderr	oldfd->errfd
 
+#ifdef DEBUG
+fprints(2,"Redirect...\n");
+fprints(2,"Infd is %d\n",Infd);
+fprints(2,"Outfd is %d\n",Outfd);
+#endif
+
     bckgnd = how & H_BCKGND;
     appnd = how & H_APPEND;
     if (oldfd!=NULL)
@@ -40,19 +46,20 @@ redirect(newfd, oldfd, how)
 	if (oldfd != NULL)
 	    if ((Oldin = dup(0)) == -1)
 	    {
-		fprintf(2, "dup: old stdin\n"); return (-1);
+		fprints(2, "dup: old stdin\n"); return (-1);
 	    }
 	close(0);
 	if (Infd > 0)
 	{
 	    if (dup(Infd) != 0)	/* panic, did not dup stdin */
 	    {
-		fprintf(2, "dup: stdin\n"); return (-1);
+		fprints(2, "dup: stdin\n"); return (-1);
 	    }
+	    close(Infd);
 	}
 	else if (open(Ifil, O_RDONLY, 0) == -1)
 	{
-	    fprintf(2, "Can't open %s\n", Ifil); return (-1);
+	    fprints(2, "Can't open %s\n", Ifil); return (-1);
 	}
     }
     if (Outfd != 1)		/* Redirect output */
@@ -60,15 +67,16 @@ redirect(newfd, oldfd, how)
 	if (oldfd != NULL)
 	    if ((Oldout = dup(1)) == -1)
 	    {
-		fprintf(2, "dup: old stdout\n"); return (-1);
+		fprints(2, "dup: old stdout\n"); return (-1);
 	    }
 	close(1);
 	if (Outfd > 1)
 	{
 	    if (dup(Outfd) != 1)/* panic, did not dup stdout */
 	    {
-		fprintf(2, "dup: stdout\n"); return (-1);
+		fprints(2, "dup: stdout\n"); return (-1);
 	    }
+	    close(Outfd);
 	}
 	else
 	{
@@ -80,11 +88,11 @@ redirect(newfd, oldfd, how)
 	    {
 		if (creat(Ofil, mode) == -1)
 		{
-		    fprintf(2, "Can't open %s\n", Ofil); return (-1);
+		    fprints(2, "Can't open %s\n", Ofil); return (-1);
 		}
 		if (open(Ofil, flags) == -1)
 		{
-		    fprintf(2, "Can't open %s\n", Ofil); return (-1);
+		    fprints(2, "Can't open %s\n", Ofil); return (-1);
 		}
 	    }
 #else
@@ -94,7 +102,7 @@ redirect(newfd, oldfd, how)
 	    mode = 0777;
 	    if (open(Ofil, flags, mode) == -1)
 	    {
-		fprintf(2, "Can't open %s\n", Ofil); return (-1);
+		fprints(2, "Can't open %s\n", Ofil); return (-1);
 	    }
 #endif
 	    if (appnd) lseek(1, 0L, 2);
@@ -106,15 +114,16 @@ redirect(newfd, oldfd, how)
 	if (oldfd != NULL)
 	    if ((Olderr = dup(2)) == -1)
 	    {
-		fprintf(2, "dup: old stderr\n"); return (-1);
+		fprints(2, "dup: old stderr\n"); return (-1);
 	    }
 	close(2);
 	if (Errfd > 2)
 	{
 	    if (dup(Errfd) != 2)
 	    {
-		fprintf(2, "dup: stderr\n"); return (-1);
+		fprints(2, "dup: stderr\n"); return (-1);
 	    }
+	    close(Errfd);
 	}
 	else
 	{
@@ -124,18 +133,18 @@ redirect(newfd, oldfd, how)
 	    errno = OK;		/* Set no current errors */
 	    if (creat(Efil, mode) == -1)
 	    {
-		fprintf(2, "Can't open %s\n", Efil); return (-1);
+		fprints(2, "Can't open %s\n", Efil); return (-1);
 	    }
 	    if (open(Efil, flags) == -1)
 	    {
-		fprintf(2, "Can't open %s\n", Efil); return (-1);
+		fprints(2, "Can't open %s\n", Efil); return (-1);
 	    }
 #else
 	    flags = O_WRONLY | O_CREAT | O_TRUNC;
 	    mode = 0777;
 	    if (open(Efil, flags, mode) == -1)
 	    {
-		fprintf(2, "Can't open %s\n", Efil); return (-1);
+		fprints(2, "Can't open %s\n", Efil); return (-1);
 	    }
 #endif
 	}
@@ -155,24 +164,42 @@ int invoke(argc,argv,newfd,how)
  char *argv[];
  struct rdrct newfd;
  {
-  int pid;
+  int pid,i;
   BOOLEAN builtin();
   struct rdrct oldfd;
 
+			/* Firstly redirect the input/output */
   redirect(newfd,&oldfd,how);
+			/* Try builtins & unredirect if yes */
   if (argc==0 || builtin(argc,argv,newfd)) { redirect(oldfd,0,0); return(0); }
 
+			/* Else fork/exec the process */
   switch(pid=fork())
    {
-    case -1: printf("Can't create new process\n");
+    case -1: fprints(2,"Can't create new process\n");
 	     return;
-    case 0:  if (!(how & H_BCKGND)) entrysig();
+			/* Restore signals to normal if fg */
+    case 0:  if (!(how & H_BCKGND)) dflsig();
+	     else
+	       {	/* Move process to new proc-grp if bg */
+#ifdef DEBUG
+		prints("About to setpgrp on bckgnd process\n");
+#endif
+    		setpgrp(0,getpid());
+	       }
              if (!EVupdate())
 		fatal("Can't update environment");
+			/* The fork only wants fds 0,1,2 */
+	     for (i=3; i<20; i++) close(i);
+			/* Finally exec() the beast */
+	     /* fprints(2,"Execing %s as pid %d\n",argv[0],getpid()); */
 	     execvp(argv[0],argv);
-	     fprintf(stderr,"Can't execute %s\n",argv[0]);
+			/* Failed, exit the child */
+	     fprints(2,"Can't execute %s\n",argv[0]);
 	     exit(0);
+			/* Unredirect our I/O */
     default: redirect(oldfd,0,0);
+			/* and return the new pid */
 	     return(pid);
    }
  }

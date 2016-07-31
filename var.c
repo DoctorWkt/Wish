@@ -119,7 +119,7 @@ BOOLEAN EVupdate()		/* Build envp from symbol table */
      }
     else if ((environ[envi]=realloc(environ[envi],nvlen))==NULL)
            return(FALSE);
-    sprintf(environ[envi],"%s=%s",v->name,v->val);
+    sprints(environ[envi],"%s=%s",v->name,v->val);
     envi++;
    }
   environ[envi]=NULL;
@@ -133,7 +133,7 @@ void EVprint()		/* Print environment */
 
   for (i=0; i<MAXVAR; i++)
     if (sym[i].name!=NULL)
-      printf("%d %3s %s=%s\n",i,sym[i].exported ? "[E]" : "",
+      prints("%d %3s %s=%s\n",i,sym[i].exported ? "[E]" : "",
 		sym[i].name,sym[i].val);
  }
 
@@ -144,13 +144,13 @@ void asg(argc,argv)		/* Assignment command */
  {
   char *name, *val, *strtok();
 
-  if (argc!=1) printf("Extra args\n");
+  if (argc!=1) prints("Extra args\n");
   else
    {
     name=strtok(argv[0],"=");
     val=strtok(NULL,"\1");	/* get all that's left */
     if (!EVset(name,val))
-      printf("Cant assign\n");
+      prints("Cant assign\n");
    }
  }
 
@@ -159,7 +159,7 @@ void set(argc,argv)		/* Set command */
  int argc;
  char *argv[];
  {
-  if (argc!=1) printf("Extra args\n");
+  if (argc!=1) prints("Extra args\n");
   else EVprint();
  }
 
@@ -173,5 +173,5 @@ void export(argc,argv)		/* Export command */
   if (argc==1) { set(argc,argv); return; }
   for (i=0; i<argc; i++)
     if (!EVexport(argv[i]))
-     { printf("Can't export %s\n",argv[i]); return; }
+     { prints("Can't export %s\n",argv[i]); return; }
  }

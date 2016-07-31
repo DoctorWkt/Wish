@@ -1,13 +1,66 @@
 #include <stdio.h>
+#include <ctype.h>
 #include <signal.h>
-#include <fcntl.h>
-#include <sys/wait.h>
-#include <sys/time.h>
-#include <sys/resource.h>
+#include <sys/types.h>
+#include <errno.h>
+#include <pwd.h>
+#if defined(__STDC__) && __STDC__
+# define PROTO
+# ifndef __GNUC__
+#  include <stdlib.h>
+# endif
+#endif
+
+#if !defined(ATT) && !defined(UCB) && !defined(MINIX) && !defined(COHERENT)
++++
+        You must define one of ATT, UCB, MINIX or COHERENT
++++
+#endif
+
+#ifdef ATT
+# include <dirent.h>
+# include <termio.h>
+# include <sys/file.h>
+# include <sys/time.h>
+#endif
+
+#ifdef MINIX
+# include <sgtty.h>
+# include <dirent.h>
+# include <fcntl.h>
+# include <time.h>
+#  ifndef ATARI_ST
+#   include <sys/dir.h>
+#  endif
+#endif
+
+#ifdef COHERENT
+# include <string.h>
+# include <dirent.h>
+# include <sgtty.h>
+# include <sys/fcntl.h>
+# include <time.h>
+#endif
+
+#ifdef UCB
+# include <termio.h>
+# include <sgtty.h>
+# include <sys/dir.h>
+# include <sys/time.h>
+# include <sys/file.h>
+# include <sys/resource.h>
+#  ifdef SUN
+#   define mc68000 1
+#   include <sys/wait.h>
+#  else
+#   include <wait.h>
+#  endif
+#endif
 
 #ifndef NULL
 #define NULL ((void *)0)
 #endif
+#define UNDEF -1
 
 #ifndef MAXSIG
 #define MAXSIG 27
@@ -39,6 +92,7 @@ typedef enum {T_WORD,T_BAR,T_AMP,T_SEMI,T_GT,T_GTGT,T_LT, T_NL,T_EOF} TOKEN;
 #define H_PIPEDOUT      010             /* Process has piped output */
 #define H_FROMFILE      020             /* Process has file input */
 #define H_TOFILE        040             /* Process has file output */
+#define H_PARENT	100		/* Process is parent of pipeline */
  
 /* Redirection */
 

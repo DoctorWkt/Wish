@@ -1,23 +1,18 @@
 #include "header.h"
 
-BOOLEAN getargs(argcp,argv,max)		/* Read and parse args */
- int *argcp;
- char *argv[];
- int max;
- {
-  static char cmd[100];
-  char *cmdp, *strtok();
-  int i;
+/* Getline gets one line of text from the keyboard, putting it in the
+ * given buffer. Currently the max number of chars is ignored. The line
+ * should end with either a \0 or a \n
+ * Returns TRUE is line ends with \n, FALSE is end of file.
+ */
 
-  if (gets(cmd)==NULL) exit(0);
-  cmdp=cmd;
-  for (i=0; i<=max; i++)
-   {
-    if ((argv[i]=strtok(cmdp," \t"))==NULL) break;
-    cmdp=NULL;		/* Tell strtok to keep going */
-   }
-  if (i>max)
-    { printf("Too many args\n"); return(FALSE); }
-  *argcp=i;
-  return(TRUE);
+BOOLEAN getline(buf,len)
+ char *buf;
+ int len;
+ {
+  int ch;
+
+  while((ch=getchar())!='\n' && (ch!=0) && (ch!=-1)) *(buf++)=ch;
+  *(buf++)=ch; *buf=0;
+  if (ch=='\n') return TRUE; else return FALSE;
  }
