@@ -115,6 +115,34 @@ void waitfor(pid)	/* Wait for child */
 #ifdef JOB
 /* Everything below this point is only used when JOB is defined.
  */
+
+/* Setownterm sets the user's terminal as being owned by the
+ * the given process group id. Processes that are not in this
+ * process group are sent SIGTTOUs if they try to write to it.
+ */
+setownterm(pid)
+ int pid;
+ {
+  if (pid)
+   {
+    if (ioctl(0,TIOCSPGRP,&pid)) perror("ioctl spg");
+   }
+ }
+
+
+/* Settou sets up the terminal so that SIGTTOUs are sent to
+ * processes which are not members of the owning process group
+ */
+void settou()
+ {
+  struct termio tbuf;
+ 
+  if (ioctl(0,TCGETA,&tbuf)) perror("ioctl in settou");
+  tbuf.c_lflag |= TOSTOP;
+  if (ioctl(0,TCSETA,&tbuf)) perror("ioctl s");
+ }
+
+
 /* Checkjobs is only called when SIGCHLD is sent. It receives the new status
  * of the child, and prints that out. If it's the child we are pause()d on,
  * it sets Headwait, thus breaking out of the pause() loop.

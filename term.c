@@ -102,7 +102,7 @@ void setcooked()		/* Set terminal to cooked mode */
 #endif
 }
 
-BOOLEAN tflagexist(id,tc)
+bool tflagexist(id,tc)
   char *id,*tc;
 {
   int i;
@@ -116,7 +116,7 @@ BOOLEAN tflagexist(id,tc)
 /* Set up the termcap string in the given variable.
  * Returns 1 if ok, 0 if no string.
  */
-BOOLEAN gettstring(name,loc)
+bool gettstring(name,loc)
  char *name, *loc;
  {
   extern char termcapbuf[];
@@ -200,7 +200,7 @@ void terminal()
   gettstring("so",so);
   gettstring("se",se);
   if (!gettstring("bl",beep))
-    strcpy(beep,"^G");
+    strcpy(beep,"\007");
   beeplength=strlen(beep);
   /* vset("beep",beep); */
 #endif

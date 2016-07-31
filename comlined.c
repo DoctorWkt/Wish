@@ -448,12 +448,12 @@ void overwr(line,pos,letter,curs)
 }
 
 #ifdef PROTO
-void show ( char *line , int curs [], BOOLEAN clearing )
+void show ( char *line , int curs [], bool clearing )
 #else
 void show(line,curs,clearing)
   char *line;
   int curs[];
-  BOOLEAN clearing;
+  bool clearing;
 #endif
 {
   extern int lenprompt;
@@ -748,7 +748,7 @@ void clrline(line,pos,curs)
   int pos,curs[];
 #endif
 {
-  extern BOOLEAN tflagexist();
+  extern bool tflagexist();
   extern char cd[];
   int i,horig,vorig;
 
@@ -827,7 +827,7 @@ int strip(line)
 /* Getline gets a line, returning a flag is it should be saved.
  * God knows what feature_off does!
  */
-BOOLEAN getline(line,nosave,feature_off)
+bool getline(line,nosave,feature_off)
   char *line;
   int *nosave,feature_off;
 {

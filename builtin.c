@@ -1,6 +1,6 @@
 #include "header.h"
 
-BOOLEAN builtin(argc,argv)		/* Do builtin */
+bool builtin(argc,argv)		/* Do builtin */
  int argc;
  char *argv[];
  {

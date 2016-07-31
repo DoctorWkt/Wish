@@ -44,24 +44,3 @@ void dflsig()		/* Uncatch all signals */
 
   for (i=1; i<=MAXSIG; i++) signal(i,SIG_DFL);
  }
-
-#ifdef JOB
-setownterm(pid)		/* Set the terminal's process group */
- int pid;
- {
-  if (pid)
-   {
-    if (ioctl(0,TIOCSPGRP,&pid)) perror("ioctl spg");
-   }
- }
-
-
-void settou()		/* Set terminal to force SIGTTOU */
- {
-  struct termio tbuf;
- 
-  if (ioctl(0,TCGETA,&tbuf)) perror("ioctl in settou");
-  tbuf.c_lflag |= TOSTOP;
-  if (ioctl(0,TCSETA,&tbuf)) perror("ioctl s");
- }
-#endif

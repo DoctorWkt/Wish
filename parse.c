@@ -72,7 +72,7 @@ static TOKEN gettoken(word)	/*correct and classify token*/
  */
 TOKEN command(waitpid,makepipe,pipefdp)	/* Do simple command */
  int *waitpid, *pipefdp;
- BOOLEAN makepipe;
+ bool makepipe;
  {
   TOKEN token,term,gettoken();
   int argc,pid,pfd[2];
@@ -135,7 +135,7 @@ TOKEN command(waitpid,makepipe,pipefdp)	/* Do simple command */
 		   newfd.ofil=dstfile;
 		   if (term==T_AMP) how |= H_BCKGND;
 		   if (token==T_SEMI || token==T_NL) how |= H_PARENT;
-		   pid=invoke(argc,argv,newfd,how);
+		   pid=invoke(argc,argv,&newfd,how);
 				/* End of command line, return pid to wait */
 		   if (token!=T_BAR) *waitpid=pid;
 		   if (argc==0 && (token!=T_NL || srcfd>1))

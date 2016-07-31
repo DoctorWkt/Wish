@@ -6,7 +6,7 @@ char *malloc(), *realloc();
 static struct varslot {
 	char *name;		/* Variable name */
 	char *val;		/* Variable's value */
-	BOOLEAN exported;	/* To be exported? */
+	bool exported;	/* To be exported? */
 	} sym[MAXVAR];
 
 static struct varslot *find(name)	/* Find a symbol table entry */
@@ -30,7 +30,7 @@ static struct varslot *find(name)	/* Find a symbol table entry */
  }
 
 
-static BOOLEAN assign(p,s)		/* Initialise name or value */
+static bool assign(p,s)		/* Initialise name or value */
  char **p, *s;
  {
   int size;
@@ -46,7 +46,7 @@ static BOOLEAN assign(p,s)		/* Initialise name or value */
  }
 
 
-BOOLEAN EVset(name,val)		/* Add name and value to the environment */
+bool EVset(name,val)		/* Add name and value to the environment */
  char *name, *val;
  {
   struct varslot *v;
@@ -56,7 +56,7 @@ BOOLEAN EVset(name,val)		/* Add name and value to the environment */
  }
 
 	
-BOOLEAN EVexport(name)		/* Set variable to be exported */
+bool EVexport(name)		/* Set variable to be exported */
  char *name;
  {
   struct varslot *v;
@@ -79,7 +79,7 @@ char *EVget(name)		/* Get value of variable */
  } 
 
 
-BOOLEAN EVinit()		/* Initialise symtable from environment */
+bool EVinit()		/* Initialise symtable from environment */
  {
   extern char **environ;
   int i,namelen;
@@ -96,12 +96,12 @@ BOOLEAN EVinit()		/* Initialise symtable from environment */
   return(TRUE);
  }
 
-BOOLEAN EVupdate()		/* Build envp from symbol table */
+bool EVupdate()		/* Build envp from symbol table */
  {
   extern char **environ;
   int i,envi,nvlen;
   struct varslot *v;
-  static BOOLEAN updated=FALSE;
+  static bool updated=FALSE;
 
   if (!updated)
     if ((environ=(char **)malloc((MAXVAR+1)*sizeof(char *)))==NULL)

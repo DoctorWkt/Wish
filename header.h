@@ -74,7 +74,7 @@
 # define MAXLL  2048
 
 
-typedef enum {FALSE,TRUE} BOOLEAN;
+typedef enum {FALSE,TRUE} bool;
 typedef enum {T_WORD,T_BAR,T_AMP,T_SEMI,T_GT,T_GTGT,T_LT, T_NL,T_EOF} TOKEN;
 
 #define fatal(mess) { fprintf(stderr,"%s\n",mess); exit(1); }

@@ -9,18 +9,18 @@
  */
 int 
 redirect(newfd, oldfd, how)
-    struct rdrct newfd, *oldfd;
+    struct rdrct *newfd, *oldfd;
     int how;
 {
     int appnd, bckgnd;
     int fd, mode, flags;
 
-#define Ifil	newfd.ifil
-#define Ofil	newfd.ofil
-#define Efil	newfd.efil
-#define Infd	newfd.infd
-#define Outfd	newfd.outfd
-#define Errfd	newfd.errfd
+#define Ifil	newfd->ifil
+#define Ofil	newfd->ofil
+#define Efil	newfd->efil
+#define Infd	newfd->infd
+#define Outfd	newfd->outfd
+#define Errfd	newfd->errfd
 #define Oldin	oldfd->infd
 #define Oldout	oldfd->outfd
 #define Olderr	oldfd->errfd
@@ -162,16 +162,16 @@ fprints(2,"Outfd is %d\n",Outfd);
 int invoke(argc,argv,newfd,how)
  int argc,how;
  char *argv[];
- struct rdrct newfd;
+ struct rdrct *newfd;
  {
   int pid,i;
-  BOOLEAN builtin();
+  bool builtin();
   struct rdrct oldfd;
 
 			/* Firstly redirect the input/output */
   redirect(newfd,&oldfd,how);
 			/* Try builtins & unredirect if yes */
-  if (argc==0 || builtin(argc,argv,newfd)) { redirect(oldfd,0,0); return(0); }
+  if (argc==0 || builtin(argc,argv)) { redirect(&oldfd,NULL,0); return(0); }
 
 			/* Else fork/exec the process */
   switch(pid=fork())
@@ -200,7 +200,7 @@ int invoke(argc,argv,newfd,how)
 	     fprints(2,"Can't execute %s\n",argv[0]);
 	     exit(0);
 			/* Unredirect our I/O */
-    default: redirect(oldfd,0,0);
+    default: redirect(&oldfd,NULL,0);
 			/* and return the new pid */
 	     return(pid);
    }
