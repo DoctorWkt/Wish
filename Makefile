@@ -68,12 +68,12 @@ CLIB=-ltermcap
 #STACK = 30000
 #FINAL_TOUCHES= chmem '=$(STACK)' shell
 
-SRCS=   builtin.c comlined.c \
+SRCS=   builtin.c clex.c comlined.c \
 	exec.c global.c job.c \
 	main.c parse.c prints.c \
 	signal.c term.c var.c
 
-OBJS=   builtin.$(O) comlined.$(O) \
+OBJS=   builtin.$(O) clex.$(O) comlined.$(O) \
 	exec.$(O) global.$(O) job.$(O) \
 	main.$(O) parse.$(O) prints.$(O) \
 	signal.$(O) term.$(O) var.$(O)

@@ -449,8 +449,8 @@ prints("Trying to use current job pointer\n");
     fprints(2,"[%d] %d %s\n",ptr->jobnumber,ptr->pid,ptr->name);
   ptr->status.w_status=0;
   currentjob=ptr;
-
-#ifdef DEBUG				/* and finally wake them up */
+					/* and finally wake them up */
+#ifdef DEBUG
   prints("About to SIGCONT %d\n",pid);
 #endif
   kill(pid,SIGCONT);

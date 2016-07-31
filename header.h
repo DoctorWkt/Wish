@@ -4,12 +4,16 @@
  * routines from different files need the structs.
  */
 
-#include <stdio.h>
-#include <ctype.h>
-#include <signal.h>
 #include <sys/types.h>
+#include <ctype.h>
+#include <string.h>
+#include <stdio.h>
+#include <signal.h>
 #include <errno.h>
 #include <pwd.h>
+#include <fcntl.h>
+#include <dirent.h>
+#include <sys/stat.h>
 #if defined(__STDC__) && __STDC__
 # define PROTO
 # ifndef __GNUC__
@@ -50,7 +54,6 @@
 
 #ifdef UCB
 # include <sgtty.h>
-# include <sys/dir.h>
 # include <sys/time.h>
 # include <sys/file.h>
 # include <sys/resource.h>
@@ -78,6 +81,8 @@
 #define MAXFNAME 200
 #define MAXPL   128                    /* path length */
 # define MAXLL  2048
+#define MAXWL 512
+# define MAXCAN 1000                    /* maximum number of candidates */
 
 
 typedef enum {FALSE,TRUE} bool;

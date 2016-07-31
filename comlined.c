@@ -705,15 +705,18 @@ void yanknext(line,pos,yankbuf)
     }
 }
 
+/* Yank the previous word into the yankbuf. It now also returns the
+ * line-position of the first character.
+ */
 #ifdef PROTO
-void yankprev ( char *line , int pos , char *yankbuf )
+int yankprev ( char *line , int pos , char *yankbuf )
 #else
-void yankprev(line,pos,yankbuf)
+int yankprev(line,pos,yankbuf)
   char *line,*yankbuf;
   int pos;
 #endif
 {
-  int stpos=pos,inword=0,l=1;
+  int stpos=pos,inword=0,l=1,rtnvalue;
 
   while(l && stpos>0)			/* this loop finds the start of the */
     switch(line[stpos-1])		/* previous word (at stpos) */
@@ -727,9 +730,11 @@ void yankprev(line,pos,yankbuf)
 	inword=1;
 	stpos--;
     }
+  rtnvalue=stpos;
   for (l=0;stpos<pos;stpos++,l++)	/* then copy from stpos upto pos */
     yankbuf[l]=line[stpos];
   yankbuf[l]=EOS;
+  return(rtnvalue);
 }
 
 #ifdef PROTO
@@ -866,6 +871,7 @@ bool getline(line,nosave,feature_off)
 		 }
 		 else if (line[pos]!=EOS)
 			copyback(line,pos,curs,1); /* delete char */
+		      else if (!feature_off) complete(line,&pos,curs,FALSE);
 		 break;
       case END: goend(line,&pos,curs);		/* goto end of the line */
 		 break;
@@ -892,6 +898,10 @@ bool getline(line,nosave,feature_off)
 		   copyback(line,--pos,curs,1); /*move line back on to prev char*/
 		 }
 		 else write(1,beep,beeplength);		/* else ring bell */
+		 break;
+      case COMPLETE: if (line[0]!=EOS)		/* try to complete word */
+			complete(line,&pos,curs,TRUE);
+		 else write(1,beep,beeplength);
 		 break;
       case FINISH: goend(line,&pos,curs);
 		 write(fileno(zout),"\n",1);
