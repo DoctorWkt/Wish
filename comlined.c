@@ -821,10 +821,10 @@ int strip(line)
   return(nosave);
 }
 
-/* Getline gets a line, returning a flag is it should be saved.
+/* Getuline gets a line from the user, returning a flag is it should be saved.
  * God knows what feature_off does!
  */
-bool getline(line,nosave,feature_off)
+bool getuline(line,nosave,feature_off)
   char *line;
   int *nosave,feature_off;
 {

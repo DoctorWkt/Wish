@@ -5,6 +5,7 @@
 #endif
 
 char linebuf[1000];
+char linebuf2[1000];
 char *prompt;
 int lenprompt;
 
@@ -54,11 +55,12 @@ main()
 
   while(1)
    {						/* Run a command */
-    for (i=0; i<1000; i++) linebuf[i]=0;
+    for (i=0; i<1000; i++) linebuf[i]=linebuf2[i]=0;
     setcbreak();				/* Set cbreak mode */
-    if (getline(linebuf,&q,FALSE)==TRUE)	/* Get a line from user */
+    if (getuline(linebuf,&q,FALSE)==TRUE)	/* Get a line from user */
      {
-      parsebuf=linebuf;
+      meta_2(linebuf,linebuf2);			/* Expand metachars */
+      parsebuf=linebuf2;			/* Point parser to line */
       setcooked();
       term=command(&pid,FALSE,NULL);		/* Actually run it here */
 #ifdef DEBUG

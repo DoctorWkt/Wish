@@ -3,16 +3,16 @@
 # LDFLAGS are used when linking
 #
 #CFLAGS= -O -I/usr/include2 
-#CFLAGS= -3
-CFLAGS=-gx
+CFLAGS= -3
+#CFLAGS=-gx
 #CFLAGS= -ansi
 #CFLAGS= -O
-#LDFLAGS= -3
+LDFLAGS= -3
 #LDFLAGS= -i
 
 # And the name of your compiler (may not be cc)
 #CC=/usr/bin2/cc
-#CC=/local/bin/bcc
+CC=/local/bin/bcc
 #CC=gcc
 
 # Some compilers generate object files that don't end in `.o'. Alter the
@@ -40,8 +40,8 @@ O= o
 #CLIB=-ltermcap
 
 # Sun OS
-DEFINES=-DUCB -DSUN -DHASH -DJOB -DSCRIPT
-CLIB=-ltermcap
+#DEFINES=-DUCB -DSUN -DHASH -DJOB -DSCRIPT
+#CLIB=-ltermcap
 
 # Coherent -- comment out the .c.$(O) rule down below, since Coherent
 # Make already has it defined in /usr/lib/makeactions & pukes with the
@@ -55,8 +55,8 @@ CLIB=-ltermcap
 # Clam won't compile under Minix 1.5.10, because asld runs out of symbol
 # table space. It may just compile under 1.3c. At the moment I'm using a
 # mixture of the K&R compiler and the Ansi compiler to avoid asld.
-#DEFINES=-DMINIX
-#STACK = 30000
+DEFINES=-DMINIX
+STACK = 30000
 #FINAL_TOUCHES= chmem '=$(STACK)' shell
 
 # The following was used to compile Clam under the previous version of
@@ -70,12 +70,12 @@ CLIB=-ltermcap
 
 SRCS=   builtin.c clex.c comlined.c \
 	exec.c global.c job.c \
-	main.c parse.c prints.c \
+	main.c meta.c parse.c prints.c \
 	signal.c term.c var.c
 
 OBJS=   builtin.$(O) clex.$(O) comlined.$(O) \
 	exec.$(O) global.$(O) job.$(O) \
-	main.$(O) parse.$(O) prints.$(O) \
+	main.$(O) meta.$(O) parse.$(O) prints.$(O) \
 	signal.$(O) term.$(O) var.$(O)
 
 shell : $(OBJS)

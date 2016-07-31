@@ -2,13 +2,13 @@
 
 /* Given a word, fill up an array of partial matches to that word */
 
-struct candidate { char *name;
-		   int mode;
+struct candidate { int mode;
+		   char *name;
 	};
 
 
 static struct candidate carray[MAXCAN];
-static int numcand,maxlen;
+int numcand,maxlen;
 
 
 static int compare(a,b)
@@ -30,6 +30,7 @@ static void extend(line,pos,curs,word)
   int i,j,nostop=1;
   char *newword, *t;
 
+  if (*word=='~') word++;
   t= strrchr(word,'/');		/* Go to the last '/' */
   if (t!=NULL) word= ++t;
 
@@ -37,21 +38,19 @@ static void extend(line,pos,curs,word)
    {
     case 0:  write(1,beep,beeplength); return;
     case 1:  newword= carray[0].name;
-    default: if ((newword=(char *)malloc((unsigned)maxlen+1))==NULL) return;
+    default: if ((newword=(char *)malloc((unsigned)maxlen+2))==NULL) return;
   	     for (i=0; i<maxlen+1; i++) newword[i]=EOS;
 	     strcpy(newword,word);		/* Set up as much as we have */
 
              for (i=strlen(word);nostop && i<maxlen;i++)
               for (j=0;j<numcand;j++)
-               { if (strlen(carray[j].name)<i) continue;
+               {
+		 if (strlen(carray[j].name)<=i) { nostop=0; break; }
                  if (newword[i]==0) newword[i]=carray[j].name[i];
                  if (newword[i]!=carray[j].name[i])
 		   { newword[i]=EOS; nostop=0; break; }
                }
    }
-#ifdef DEBUG
-prints("\n%s\n",newword);
-#endif
   for (i=strlen(word); i<strlen(newword); i++)
 	insert(line,(*pos)++,newword[i],curs);
 
@@ -89,9 +88,11 @@ static void colprint()
       if ((carray[index].mode & S_IFMT) == S_IFDIR)
 	strcat(carray[index].name,"/");
 #ifdef S_IFLNK
+      else
       if ((carray[index].mode & S_IFMT) == S_IFLNK)
 	strcat(carray[index].name,"@");
 #endif
+      else
       if (carray[index].mode & 0111)
 	strcat(carray[index].name,"*");
       prints(format,carray[index].name);
@@ -144,7 +145,7 @@ static void findfile(word)
       if (i==0 || !strncmp(entry->d_name,match,i))
         {
 	  j= strlen(entry->d_name);
-	  carray[numcand].name= (char *)malloc((unsigned)(j+1));
+	  carray[numcand].name= (char *)malloc((unsigned)(j+4));
 
 	  if (carray[numcand].name==NULL) break;
 	  strcpy(carray[numcand].name,entry->d_name);
@@ -178,7 +179,7 @@ static void findpasswd(word)
     if (i==0 || !strncmp(entry->pw_name,word,i))
      {
       j= strlen(entry->pw_name);
-      carray[numcand].name= (char *)malloc((unsigned)(j+1));
+      carray[numcand].name= (char *)malloc((unsigned)(j+2));
  
       if (carray[numcand].name==NULL) break;
       strcpy(carray[numcand].name,entry->pw_name);
@@ -196,12 +197,11 @@ static void findbin(word)
   extern char *EVget();
   int i;
   char word2[MAXWL];
-  char *thispath;
-  char *temp;
+  char *Path, *thispath, *temp;
   
   temp=EVget("PATH");		/* Get the PATH value */
   if (temp==NULL) return;
-  thispath= (char *)malloc((unsigned)strlen(temp)+1);
+  Path=thispath= (char *)malloc((unsigned)strlen(temp)+4);
   if (thispath==NULL) return;
   strcpy(thispath,temp);
   while (thispath!=NULL)
@@ -221,7 +221,7 @@ static void findbin(word)
     if (temp==NULL || *temp==EOS) thispath=NULL;
     else thispath=temp;
    }
-  free(thispath);
+  free(Path);
  }
 
 
@@ -238,7 +238,7 @@ void complete(line,pos,curs,how)
   numcand=maxlen=0;
 
   if ((*pos==0) || (line[(*pos)-1]==' '))
-    { strcpy(word,""); startpos=*pos; }	/* nothing there to get */
+    { strcpy(word,""); startpos= *pos; }	/* nothing there to get */
   else				/* first get the thing we've got so far */
     startpos= yankprev(line,*pos,word);
   
@@ -266,5 +266,6 @@ void complete(line,pos,curs,how)
       show(line,curs,TRUE);
      }
    }
-  while ((--numcand) >=0) free(carray[numcand].name);
+   while ((--numcand)>=0)
+     free(carray[numcand].name);
  }
