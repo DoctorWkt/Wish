@@ -1,0 +1,21 @@
+Here are the various versions of my Unix command-line shell called Wish.
+This was written as a smaller replacement for the Clam shell by Callum
+Gibson, but with most of the functionality of tcsh.
+
+The files ending in .gz are shell archives. You will need to gunzip them
+and then execute the file as a shell script, e.g
+
+	% gunzip v6.gz
+	% sh v6
+
+The .tar.gz files are gzipped tarballs.
+
+Most of the early versions were written before 1996, and so will need
+porting to newer versions of Unix or Linux. See wish_history.gif for
+a rough guide to the dates of various releases.
+
+The early versions were based on the shell in Marc Rochkind's book
+``Advanced UNIX Programming''. While now dated, this is still a
+great book to learn about Unix system programming.
+
+	Warren Toomey, wkt@tuhs.org, April 2003
