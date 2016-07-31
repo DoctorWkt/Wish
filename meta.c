@@ -120,7 +120,7 @@ int match(string,pattern,accumdir)
     carray[ncand].name=(char *) malloc ((unsigned)(strlen(where)+4));
     if (carray[ncand].name==NULL) return(OK);
     strcpy(carray[ncand].name,where);
-    carray[ncand++].mode=TRUE;		/* Was malloc'd */
+    carray[ncand++].mode=TRUE|C_SPACE;		/* Was malloc'd */
     return(OK);
   }
   else
@@ -274,14 +274,14 @@ void dollar(cand, doll)
       ncand += (Argc-1);
       carray[ncand-1].next=cand->next;
       carray[ncand-1].name= Argv[Argc-1];
-      carray[ncand-1].mode= FALSE;
+      carray[ncand-1].mode= FALSE|C_SPACE;
       cand->next=&carray[base];
       for (length=1;base<ncand-1;base++,length++)
        { carray[base].name= Argv[length];
-         carray[base].mode= FALSE;
+         carray[base].mode= FALSE|C_SPACE;
          carray[base].next=&carray[base+1];
        }
-      if (cand->mode==TRUE) { free(cand->name); cand->mode=FALSE; }
+      if (cand->mode&TRUE) { free(cand->name); cand->mode=FALSE; }
       cand->name=NULL;
      return;
     }
@@ -302,9 +302,9 @@ if (value) prints("Found variable $%s, value %s\n",doll,value);
 
   if (*(cand->name)==EOS && c==EOS && !mall)	/* If only the variable */
    {
-    if (cand->mode==TRUE) free(cand->name); /* we can replace totally */
+    if (cand->mode&TRUE) free(cand->name); /* we can replace totally */
     cand->name= value;
-    cand->mode= FALSE;
+    cand->mode= FALSE|C_SPACE;
    }
   else
    {					/* insert the value */
@@ -315,9 +315,9 @@ if (value) prints("Found variable $%s, value %s\n",doll,value);
 		 strcat(start,value);
 		 strcat(start,end);
 	       }
-    if (cand->mode==TRUE) free(cand->name);
+    if (cand->mode&TRUE) free(cand->name);
     cand->name= start;
-    cand->mode= TRUE;
+    cand->mode= TRUE|C_SPACE;
    }
  }
  
@@ -332,19 +332,16 @@ char *expline(list)
   char *out, *a;
   int i;
 					/* Find the amount to malloc */
-  for (i=0,q=list;q!=NULL;q=q->next) if (q->name) i+= strlen(q->name) +1;
+  for (i=0,q=list;q!=NULL;q=q->next) if (q->name) i+= strlen(q->name) +2;
 
   out= (char *)malloc((unsigned) i+4);
   if (out!=NULL)
-   {
-    for (a=out,q=list;q!=NULL;q=q->next)
+   { for (a=out,q=list;q!=NULL;q=q->next)
       if (q->name)
-       {
-	strcpy(a,q->name);
-	a+= strlen(q->name);
-	*(a++)=' ';
+       { strcpy(a,q->name); a+= strlen(q->name); 
+         if (q->mode&C_SPACE) *(a++)=' ';
        }
-    *(--a)=EOS;
+     *a=EOS;
    }
   return(out);
  }
@@ -360,24 +357,37 @@ bool meta_1(old,start)
  {
   char *a, *b, *gethist();
   char c;
+  int mode;
   struct candidate *curr;
 
   if (start==TRUE) { ncand=0; wordlist=carray; }
   while(1)						/* Parse each word */
    {
-    switch(*old)			/* Find and null terminate word */
+    mode=0;
+    a=strpbrk(old," \t\n\"'");			/* Find possible end */
+    if (a!=NULL)
      {
-      case '"': a=strpbrk(old+1,"\"");
-		if (a==NULL) { fprints(2,"Unmatched \"\n"); return(FALSE); }
-		c= *(++a); *a=EOS;
-		break;
-      case '\'': a=strpbrk(old+1,"'");
-		if (a==NULL) { fprints(2,"Unmatched '\n"); return(FALSE); }
-		c= *(++a); *a=EOS;
-		break;
-      default:  a=strpbrk(old," \t\n");
-		if (a!=NULL) { c= *a; *a=EOS; }
+      switch(*a)
+       {
+        case '"' : if (a==old) 				/* Find match */
+		   { a=strchr(old+1,'"');
+		     if (a==NULL) {fprints(2,"Unmatched \"\n"); return(FALSE);}
+		     a++; if (*a==' '||*a=='\t') {a++; mode=C_SPACE;} break;
+		   }
+		   break;
+        case '\'': if (a==old) 				/* Find match */
+		   { a=strchr(old+1,'\'');
+		     if (a==NULL) {fprints(2,"Unmatched '\n"); return(FALSE);}
+		     a++; if (*a==' '||*a=='\t') {a++; mode=C_SPACE;} break;
+		   }
+		   break;
+        default  : mode=C_SPACE;
+       }
+      c=*a; *a=EOS; 				/* Terminate the word */
      }
+#ifdef DEBUG
+fprints(2,"Found word #%s#\n",old);
+#endif
     switch(*old)
      {
       case '!': b= gethist(++old);
@@ -387,17 +397,15 @@ bool meta_1(old,start)
       	          carray[ncand].name=(char *)malloc((unsigned) strlen(old)+4);
         	  if (carray[ncand].name!=NULL)
          	   { strcpy(carray[ncand].name,old);
-           	     carray[ncand++].mode=TRUE;
+           	     carray[ncand++].mode=TRUE|mode;
          	   }
      }
     carray[ncand-1].next=&carray[ncand];	/* Join the linked list */
 
-    if (a==NULL || ncand==MAXCAN) break; if (start==FALSE) *a=c;
-    if (c!='\'' && c!='"') a++;
-    for (old=a; *old==' '&& *old=='\t'; old++); /* Bypass whitespace */
+    if (a==NULL || ncand==MAXCAN) break; *a=c;
+    for (old=a; *old==' '|| *old=='\t'; old++); /* Bypass whitespace */
    }
   carray[ncand-1].next=NULL;			/* Terminate the linked list */
-#define DEBUG
 #ifdef DEBUG
 prints("meta_1: Here's the wordlist:\n");
 for (curr=carray; curr!=NULL; curr=curr->next)
@@ -428,10 +436,10 @@ void meta_2()
 #ifdef DEBUG
         prints("tildir is %s\n",tildir);
 #endif
-        if (curr->mode==TRUE) free(curr->name);
+        if (curr->mode&TRUE) free(curr->name);
         curr->name=(char *)malloc((unsigned) strlen(tildir)+4);
         if (curr->name!=NULL)
-          { strcpy(curr->name,tildir); curr->mode=TRUE; }
+          { strcpy(curr->name,tildir); curr->mode=TRUE|C_SPACE; }
       }
    }
  }
@@ -463,7 +471,7 @@ void meta_3()
 	curr->next=&carray[base];
 	for (;base<ncand-1;base++) carray[base].next=&carray[base+1];
        }
-      if (curr->mode==TRUE) { free(curr->name); curr->mode=FALSE; }
+      if (curr->mode&TRUE) { free(curr->name); curr->mode=FALSE; }
       curr->name=NULL;
       curr=a;
       continue;

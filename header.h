@@ -100,7 +100,12 @@ typedef enum {T_WORD,T_BAR,T_AMP,T_SEMI,T_GT,T_GTGT,T_LT, T_NL,T_EOF} TOKEN;
  * The latter uses it to hold files that match *,? and [] metacharacters.
  * The latter also uses the next field to build a linked list of words
  * that will eventually be parsed by the parser.
+ * Meta also uses the mode as a bitfield to indicate:
+ *	- if the name has been malloc'd (mode&TRUE)
+ *	- if the name has an invisible space in the end (mode&C_SPACE)
  */
+
+#define C_SPACE		004		/* Word has a space on the end */
 
 struct candidate
 	{ char *name;			/* The file's name */
