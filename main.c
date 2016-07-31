@@ -5,37 +5,56 @@
 #endif
 
 char linebuf[1000];
+char *prompt;
+int lenprompt;
+
+void prprompt()
+ {
+  prints("%s",prompt);
+ }
+
+void leave_shell()
+ {
+  setcooked();
+  exit(0);
+ }
 
 main()
  {
+  extern FILE *zin, *zout;
   extern int Headpid;		/* Head of the pipeline */
   extern char *parsebuf;
-  char *prompt,*EVget();
-  int fd,pid;
+  char *EVget();
+  int i,fd,pid,q;
   TOKEN term,command();
 
+  zin=stdin; zout=stdout;
   catchsig();			/* Catch signals */
   setownterm(getpid());		/* We own the terminal */
-  /* setcbreak();			/* Set cbreak mode */
+  terminal();			/* Get the termcap strings */
+  setcbreak();			/* Set cbreak mode */
   settou();			/* and want TTOU for children */
   if (!EVinit()) fatal("Can't initialise environment");
   if ((prompt=EVget("PS2"))==NULL) prompt="> ";
-  prints("%s",prompt);
+  lenprompt=strlen(prompt);
+  prprompt();
 
   while(1)
-   {				/* Run a command */
-    getline(linebuf,1000);	/* Get a line from user */
-    parsebuf=linebuf;
-    term=command(&pid,FALSE,NULL);
-    if (term==T_EOF) { setcooked(); exit(1); }
+   {						/* Run a command */
+    for (i=0; i<1000; i++) linebuf[i]=0;
+    if (getline(linebuf,&q,FALSE)==TRUE)	/* Get a line from user */
+     {
+      parsebuf=linebuf;
+      term=command(&pid,FALSE,NULL);
 #ifdef DEBUG
-    fprints(2,"Got pid %d %d %d\n",pid,Headpid,term);
+      fprints(2,"Got pid %d %d %d\n",pid,Headpid,term);
 #endif
-    if (pid && term!=T_AMP) Headpid=pid;
-    if (term!=T_AMP && Headpid!=0)
-	waitfor(Headpid);	/* Wait for it to finish */
-    if (term==T_NL)
-    	prints("%s",prompt);	/* and close any leftover file descs */
+      if (pid && term!=T_AMP) Headpid=pid;
+      if (term!=T_AMP && Headpid!=0)
+	waitfor(Headpid);			/* Wait for it to finish */
+     }
+    prprompt();
+    				/* and close any leftover file descs */
     for (fd=3; fd<20; fd++) (void)close(fd);
    }
  }

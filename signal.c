@@ -1,4 +1,5 @@
 #include "header.h"
+#include <termio.h>
 
 #define SIGTYPE void	/* One of int or void */
 
@@ -19,13 +20,15 @@ void catchsig()		/* Make us catch all signals */
   void stopjob();
 #endif
 
-  /* signal(SIGINT,SIG_IGN); 		For debugging */
+  signal(SIGINT,SIG_IGN); 		/* For debugging */
   signal(SIGQUIT,SIG_IGN);
+#ifdef NOTYET
   for (i=4; i<=MAXSIG; i++)
    {
       if (i!=SIGKILL && i!=SIGCONT) /* SIGKILL cannot be caught or ignored */
           signal(i,graceful);
    }
+#endif
 #ifdef JOB
 			/* Also catch these for job control */
   signal(SIGCHLD,checkjobs);

@@ -43,7 +43,6 @@
 #endif
 
 #ifdef UCB
-# include <termio.h>
 # include <sgtty.h>
 # include <sys/dir.h>
 # include <sys/time.h>
@@ -61,6 +60,7 @@
 #define NULL ((void *)0)
 #endif
 #define UNDEF -1
+#define EOS 0
 
 #ifndef MAXSIG
 #define MAXSIG 27
@@ -71,6 +71,8 @@
 #define MAXWORD 200
 #define MAXFNAME 200
 #define MAXPL   128                    /* path length */
+# define MAXLL  2048
+
 
 typedef enum {FALSE,TRUE} BOOLEAN;
 typedef enum {T_WORD,T_BAR,T_AMP,T_SEMI,T_GT,T_GTGT,T_LT, T_NL,T_EOF} TOKEN;
