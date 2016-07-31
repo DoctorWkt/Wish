@@ -6,6 +6,7 @@
 
 extern struct candidate carray[];	/* The matched files */
 static int numcand;
+struct candidate *wordlist;		/* The list of words for the parser */
 
 /* Match takes a string, and a pattern, which can contain *, ? , \ and [],
  * and returns 0 if the strings matched the pattern, otherwise a negative
@@ -120,7 +121,6 @@ int match(string,pattern,accumdir)
     if (carray[numcand].name==NULL) return(OK);
     strcpy(carray[numcand].name,where);
     carray[numcand++].mode=TRUE;		/* Was malloc'd */
-    
     return(OK);
   }
   else
@@ -209,34 +209,112 @@ void finddir(word,dir)
 }
 
 
+/* Tilde takes the word beginning with a ~, and returns the word with the
+ * first part replaced by the directory name. If ~/, we use $HOME
+ * e.g ~fred -> /u1/staff/fred
+ *     ~jim/Dir/*.c -> /usr/tmp/jim/Dir/*.c
+ *     ~/Makefile -> /u1/staff/warren/Makefile
+ * If it cannot expand, it returns dir as a zero-terminated string
+ */
+void tilde(word,dir)
+ char *word, *dir;
+ {
+  struct passwd *entry;
+  char *a;
+
+  word++;
+  if (*word=='/')			/* use $HOME */
+   { a= word;
+     entry=getpwuid(getuid());
+   }
+  else
+   { a=strchr(word,'/');
+     if (a!=NULL) *a=0;
+     entry=getpwnam(word);
+   }
+  endpwent();
+  if (entry==NULL) { *dir=0; return; }
+  strcpy(dir,entry->pw_dir);		/* Form the real partial name */
+  if (a!=NULL) { *a='/'; strcat(dir,a); }
+ }
+
+
+/* Meta_1 takes the user's input line, and builds a linked list of words
+ * in the carray. It also expands tildes.
+ */
+void meta_1(old)
+ char *old;
+ {
+  char *a;
+  struct candidate *q;
+  char tildir[MAXWL];
+
+  numcand=0; wordlist=carray;
+  while(*old!=0)				/* Parse each word */
+   {
+    for (a=old;*a!=' '&&*a!='\t'&&*a!='\n'&&*a!=0;a++);	/* Find a space */
+    *a=0;					/* Null term the word */
+    if (*old=='~')
+     {
+      tilde(old,tildir);
+      if (*tildir!=0)				/* Append to the carray */
+       {
+        carray[numcand].name=(char *)malloc((unsigned)strlen(tildir)+4);
+        if (carray[numcand].name==NULL)
+         { carray[numcand].name=old;
+           carray[numcand++].mode=FALSE;
+         }
+        else 
+         { strcpy(carray[numcand].name,tildir);
+           carray[numcand++].mode=TRUE;
+         }
+       }
+     }
+    else
+     { carray[numcand].name=old;
+       carray[numcand++].mode=FALSE;		/* (not malloc'd) */
+     }
+    carray[numcand-1].next=&carray[numcand];	/* Join the linked list */
+    if (numcand==MAXCAN) break;
+
+    for (old=++a; *old==' '&& *old=='\t'; old++); /* Bypass whitespace */
+   }
+  carray[numcand-1].next=NULL;			/* Terminate the linked list */
+ }
+
+
 /* Meta_2 copies the old line to the new, expanding metachars */
-void meta_2(o)
- char *o;
+void meta_2()
  {
   extern int compare();
   char dir[MAXWL];
-  char *a;
+  struct candidate *curr, *a;
   int base;
 
-  numcand=0;
-  while(*o!=0)					/* Parse each word */
+  for(curr=carray;curr!=NULL;)
    {
-    for (a=o;*a!=' '&&*a!='\t'&&*a!='\n'&&*a!=0;a++);	/* Find a space */
-    *a=0;					/* Null term the word */
-    if (strpbrk(o,"*?[\\"))			/* If we find these */
+    if (strpbrk(curr->name,"*?[\\"))	/* If we find these */
      {
       base=numcand;				/* Save start of expansion */
-      dir[0]=EOS; finddir(o,dir);		/* expand them */
-      if (!matchdir(dir,o))
+      dir[0]=EOS; finddir(curr->name,dir);	/* expand them */
+      a=curr->next;
+      if (!matchdir(dir,curr->name))
+       {
         qsort((char *)&carray[base],numcand-base,sizeof(struct candidate),compare);
+						/* Now insert into list */
+        carray[numcand-1].next=a;
+	curr->next=&carray[base];
+	for (;base<numcand-1;base++) carray[base].next=&carray[base+1];
+       }
+      if (curr->mode==TRUE) { free(curr->name); curr->mode=FALSE; }
+      curr->name=NULL;
+      curr=a;
      }
-    else
-     {  carray[numcand].name=o;			/* just copy old to new */
-	carray[numcand++].mode=FALSE;		/* (not malloc'd) */
-	if (numcand==MAXCAN) break;
-     }
-
-    for (o=++a; *o==' '&& *o=='\t'; o++);	/* Bypass whitespace */
+    else curr=curr->next;
    }
-  carray[numcand].name=NULL;
+#ifdef DEBUG
+prints("meta_1: Here's the wordlist:\n");
+for (curr=carray; curr!=NULL; curr=curr->next)
+  prints("--> %s\n",curr->name);
+#endif
  }

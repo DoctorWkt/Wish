@@ -59,7 +59,8 @@ main()
     if (getuline(linebuf,&q,FALSE)==TRUE)	/* Get a line from user */
      {
       strcpy(l2,linebuf);
-      meta_2(l2);				/* Expand metachars */
+      meta_1(l2);				/* Expand metachars */
+      meta_2(linebuf);				/* Expand metachars */
       setcooked();
       term=command(&pid,FALSE,NULL);		/* Actually run it here */
 #ifdef DEBUG

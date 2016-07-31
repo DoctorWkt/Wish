@@ -4,7 +4,7 @@
  */
 
 extern struct candidate carray[];	/* The buffer we are parsing */
-static int thisword;			/* The word we are parsing */
+static struct candidate *curr;		/* The word we are parsing */
 
 static TOKEN gettoken(word)	/* Correct and classify token */
  char *word;  
@@ -12,17 +12,16 @@ static TOKEN gettoken(word)	/* Correct and classify token */
   enum {NEUTRAL,GTGT,INQUOTE,INWORD} state=NEUTRAL;
   int c; char *w, *x;  
 
-  w=word; x=carray[thisword].name;
-  if (x==NULL)
-    if (thisword==0) return(T_EOF); else return(T_NL);
+  w=word; x=curr->name;
   while(1)
    {
     c= *(x++);
     if (c==0)
      {
       c= ' ';
-      x=carray[++thisword].name;
-      if (thisword==MAXCAN || x==NULL) c='\n';
+      curr=curr->next;
+      if (curr==NULL) c='\n';
+      else x=curr->name;
      }
     switch(state)
      {
@@ -97,7 +96,8 @@ TOKEN command(waitpid,makepipe,pipefdp)	/* Do simple command */
 #define srcfd newfd.infd
 #define dstfd newfd.outfd
 
-  argc=0; srcfd=0; dstfd=1; thisword=0;
+  argc=0; srcfd=0; dstfd=1; curr=carray;
+  if (curr==NULL) return(T_EOF);
   while(1)
    {
     switch(token=gettoken(word))

@@ -97,10 +97,13 @@ typedef enum {T_WORD,T_BAR,T_AMP,T_SEMI,T_GT,T_GTGT,T_LT, T_NL,T_EOF} TOKEN;
 /* The following structure is used by both clex.c and meta.c. The former
  * uses it to hold candidates files that matched a ^D or <tab> expression.
  * The latter uses it to hold files that match *,? and [] metacharacters.
+ * The latter also uses the next field to build a linked list of words
+ * that will eventually be parsed by the parser.
  */
 
 struct candidate
 	{ char *name;		/* The file's name */
+	  char *next;		/* Next field in linked list */
 	  int mode;		/* File's mode (clex), or malloc'd bool */
 	};
 

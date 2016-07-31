@@ -165,21 +165,15 @@ static void findpasswd(word)
 
   struct passwd *entry;
 
-  if (word!=NULL && *word!=EOS)
-    i=strlen(word);
-  else i=0;
-
   if ((a=strchr(word,'/'))!=NULL)	/* We have to find a file */
    {
-    *a=0; entry=getpwnam(word);
-    endpwent();
-    if (entry==NULL) return;
-    strcpy(dir,entry->pw_dir);		/* Form the real partial name */
-    *a='/';
-    strcat(dir,a);
-    findfile(dir);
+    tilde(word,dir);
+    if (*dir!=0) findfile(dir);
     return;
    }
+
+  word++;				/* Skip over tilde */
+  i=strlen(word);
   while((entry=getpwent())!=NULL && numcand<MAXCAN)
    {
     if (i==0 || !strncmp(entry->pw_name,word,i))
@@ -255,7 +249,7 @@ void complete(line,pos,curs,how)
     }
   else
     {
-     if (*word=='~') findpasswd(&word[1]);
+     if (*word=='~') findpasswd(word);
      else findfile(word);
     }
 
