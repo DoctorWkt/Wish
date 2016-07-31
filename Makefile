@@ -1,6 +1,6 @@
-CFLAGS= -gx -DUCB -DSUN -DJOB
+CFLAGS= -DMINIX
 
-shell: builtin.o comlined.o exec.o global.o job.o main.o parse.o prints.o \
-		signal.o term.o var.o
-	cc -o shell builtin.o comlined.o exec.o global.o job.o main.o parse.o \
-		prints.o signal.o term.o var.o -ltermcap
+shell: builtin.s comlined.s exec.s global.s job.s main.s parse.s prints.s \
+		signal.s term.s var.s
+	cc -v -o shell builtin.s comlined.s exec.s global.s job.s main.s parse.s \
+		prints.s signal.s term.s var.s

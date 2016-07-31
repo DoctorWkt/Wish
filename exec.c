@@ -80,7 +80,7 @@ fprints(2,"Outfd is %d\n",Outfd);
 	}
 	else
 	{
-#if defined(MINIX) || defined(COHERENT)
+#ifdef COHERENT
 	    flags = O_WRONLY;	/* Minix has old open call */
 	    mode = 0777;
 	    errno = OK;		/* Set no current errors */
@@ -127,7 +127,7 @@ fprints(2,"Outfd is %d\n",Outfd);
 	}
 	else
 	{
-#if defined(MINIX) || defined(COHERENT)
+#ifdef COHERENT
 	    flags = O_WRONLY;
 	    mode = 0777;
 	    errno = OK;		/* Set no current errors */
@@ -182,10 +182,12 @@ int invoke(argc,argv,newfd,how)
     case 0:  if (!(how & H_BCKGND)) dflsig();
 	     else
 	       {	/* Move process to new proc-grp if bg */
+#ifdef JOB
 #ifdef DEBUG
 		prints("About to setpgrp on bckgnd process\n");
 #endif
     		setpgrp(0,getpid());
+#endif
 	       }
              if (!EVupdate())
 		fatal("Can't update environment");

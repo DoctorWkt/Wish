@@ -9,7 +9,7 @@ static TOKEN gettoken(word)	/*correct and classify token*/
   int c; char *w;  
 
   w=word;
-  while((c=*(parsebuf++))!=0)
+  while((c= *(parsebuf++))!=0)
    {
     switch(state)
      {
@@ -35,7 +35,7 @@ static TOKEN gettoken(word)	/*correct and classify token*/
 		    return(T_GT);
       case INQUOTE: switch(c)
 		     {
-		      case '\\' : *w++=*(parsebuf++);
+		      case '\\' : *w++= *(parsebuf++);
 				  continue;
 		      case '"':   *w='\0';
 				  return(T_WORD);
@@ -63,6 +63,13 @@ static TOKEN gettoken(word)	/*correct and classify token*/
  }
 
 
+/* Command parses parsebuf and calls invoke() to redirect and execute
+ * each simple command in the parsebuf. It returns the pid to wait on
+ * in waitpid, or 0 if no pid to wait on, as well as the token that ended
+ * the pasebuf. This routine is recursive, and when passed makepipe=TRUE,
+ * makes a pipe, and returns the fd of the writing end in pipefdp. It is
+ * normally called with tok=command(&pid,FALSE,NULL);
+ */
 TOKEN command(waitpid,makepipe,pipefdp)	/* Do simple command */
  int *waitpid, *pipefdp;
  BOOLEAN makepipe;
@@ -105,20 +112,22 @@ TOKEN command(waitpid,makepipe,pipefdp)	/* Do simple command */
 		   if (token==T_GTGT) how |= H_APPEND;
 		   continue;
       case T_BAR:
-      case T_AMP:
-      case T_SEMI:
+      case T_AMP:		/* If a pipe, call ourselves to get */
+      case T_SEMI:		/* the write file descriptor */
       case T_NL:   argv[argc]=NULL;
 		   if (token==T_BAR)
 		    {
 		     if (dstfd!=1)
 		      { fprints(2,"> or >> conflicts with |\n"); break; }
 		     term=command(waitpid,TRUE,&dstfd);
-		    }
+		    }		/* and set up the terminal token */
 		   else term=token;
+				/* If called by us, make the needed pipe */
 		   if (makepipe)
 		     {
 		      if (pipe(pfd)==-1)
 		       { perror("pipe"); break; }
+				/* and return the write file descriptor */
 		      *pipefdp=pfd[1];
 		      srcfd=pfd[0];
 		     }
@@ -127,6 +136,7 @@ TOKEN command(waitpid,makepipe,pipefdp)	/* Do simple command */
 		   if (term==T_AMP) how |= H_BCKGND;
 		   if (token==T_SEMI || token==T_NL) how |= H_PARENT;
 		   pid=invoke(argc,argv,newfd,how);
+				/* End of command line, return pid to wait */
 		   if (token!=T_BAR) *waitpid=pid;
 		   if (argc==0 && (token!=T_NL || srcfd>1))
 			fprints(2,"Missing command\n");

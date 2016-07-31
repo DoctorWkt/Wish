@@ -1,5 +1,7 @@
 #include "header.h"
-#include <termio.h>
+#ifdef JOB
+# include <termio.h>
+#endif
 
 #define SIGTYPE void	/* One of int or void */
 
@@ -43,18 +45,17 @@ void dflsig()		/* Uncatch all signals */
   for (i=1; i<=MAXSIG; i++) signal(i,SIG_DFL);
  }
 
+#ifdef JOB
 setownterm(pid)		/* Set the terminal's process group */
  int pid;
  {
-#ifdef UCB
   if (pid)
    {
     if (ioctl(0,TIOCSPGRP,&pid)) perror("ioctl spg");
    }
-#endif
  }
 
-#ifdef JOB
+
 void settou()		/* Set terminal to force SIGTTOU */
  {
   struct termio tbuf;

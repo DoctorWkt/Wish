@@ -12,10 +12,12 @@ BOOLEAN builtin(argc,argv)		/* Do builtin */
 		export(argc,argv);
   else if (!strcmp(argv[0],"set"))
 		set(argc,argv);
+#ifdef JOB
   else if (!strcmp(argv[0],"bg"))
 		bg(argc,argv);
   else if (!strcmp(argv[0],"fg"))
 		fg(argc,argv);
+#endif
   else if (!strcmp(argv[0],"cd"))
 	 {
 	  if (argc>1) path=argv[1];

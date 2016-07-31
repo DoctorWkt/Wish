@@ -30,10 +30,12 @@ main()
 
   zin=stdin; zout=stdout;
   catchsig();			/* Catch signals */
+#ifdef JOB
   setownterm(getpid());		/* We own the terminal */
+  settou();			/* and want TTOU for children */
+#endif
   terminal();			/* Get the termcap strings */
   setcbreak();			/* Set cbreak mode */
-  settou();			/* and want TTOU for children */
   if (!EVinit()) fatal("Can't initialise environment");
   if ((prompt=EVget("PS2"))==NULL) prompt="> ";
   lenprompt=strlen(prompt);
