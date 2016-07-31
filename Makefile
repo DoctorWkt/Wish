@@ -24,29 +24,38 @@ O= o
 # one of the following sections
 
 # Pyramid Dual Universe machine under SysV
-#DEFINES=-DUNIVERSE -DATT -DHASH -DSCRIPT
+#DEFINES=-DSYSVPYR
 #CLIB=-lcurses
 
 # Pyramid Dual Universe machine under BSD 4.x
-#DEFINES=-DUNIVERSE -DUCB -DHASH -DSCRIPT -DJOB
-#CLIB=-ltermcap
+# You'll need to extract some string routines from the att library
+# before compiling. Do:
+#  % att ar x /lib/libc.a strtok.o strpbrk.o strspn.o
+#
+#DEFINES=-DBSDPYR
+#CLIB=-ltermcap strtok.o strpbrk.o strspn.o
 
 # Generic SysV machine
-#DEFINES=-DATT -DHASH -DSCRIPT
+#DEFINES=-DGENSYSV
 #CLIB=-lcurses
 
 # Generic BSD 4.x machine
-#DEFINES=-DUCB -DHASH -DJOB -DSCRIPT
+# The following three routines may not be available in your library:
+#    strtok.o strpbrk.o strspn.o
+# If the compilation fails because these are missing, you will have to
+# find the files and add them to the CLIB line. You may even have to
+# write them yourself; sorry.
+#DEFINES=-DGENBSD
 #CLIB=-ltermcap
 
 # Sun OS
-DEFINES=-DUCB -DSUN -DHASH -DJOB -DSCRIPT
+DEFINES=-DSUN
 CLIB=-ltermcap
 
 # Coherent -- comment out the .c.$(O) rule down below, since Coherent
 # Make already has it defined in /usr/lib/makeactions & pukes with the
 # redefinition.
-#DEFINES= -DNEED_GETCWD
+#DEFINES= -DCOHERENT
 #CLIB= -lterm -lndir
 #STACK = 3000
 #FINAL_TOUCHES = fixstack $(STACK) shell ; chmod 755 shell ; size shell
@@ -56,15 +65,6 @@ CLIB=-ltermcap
 # table space. It may just compile under 1.3c. At the moment I'm using a
 # mixture of the K&R compiler and the Ansi compiler to avoid asld.
 #DEFINES=-DMINIX
-#STACK = 30000
-#FINAL_TOUCHES= chmem '=$(STACK)' shell
-
-# The following was used to compile Clam under the previous version of
-# ST Minix, using GnuC. Because ST & PC Minix 1.5.10 are nearly identical,
-# try compiling _without_ -DATARI_ST and see if Clam compiles & runs.
-# If not, try with the define. Once you get it to go, please send patches!
-#DEFINES=-DMINIX -DATARI_ST
-#CLIB= -ldir32 -liio32 -s -z
 #STACK = 30000
 #FINAL_TOUCHES= chmem '=$(STACK)' shell
 
@@ -91,7 +91,8 @@ $(OBJS): Makefile header.h
 lint : $(SRCS)
 	lint $(LINTFLAGS) $(DEFINES) $(SRCS)
 
-clr:	rm -rf *.$(O) shell
+clr :
+	rm -f *.$(O) shell
 
 clean :
 	rm -f *.$(O)

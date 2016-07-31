@@ -151,10 +151,10 @@ int matchdir(directory,pattern)
   char *directory,*pattern;
 {
   DIR *dirp,*opendir();
-#ifdef UCB
-  struct dirent *entry,*readdir();
-#else
+#if defined(ATT) || defined(PYR)
   struct direct *entry,*readdir();
+#else
+  struct dirent *entry,*readdir();
 #endif
   int foundany=0;
 
@@ -275,11 +275,11 @@ void dollar(cand, doll)
       carray[ncand-1].next=cand->next;
       carray[ncand-1].name= Argv[Argc-1];
       carray[ncand-1].mode= FALSE|C_SPACE;
-      cand->next=&carray[base];
+      cand->next= &carray[base];
       for (length=1;base<ncand-1;base++,length++)
        { carray[base].name= Argv[length];
          carray[base].mode= FALSE|C_SPACE;
-         carray[base].next=&carray[base+1];
+         carray[base].next= &carray[base+1];
        }
       if (cand->mode&TRUE) { free(cand->name); cand->mode=FALSE; }
       cand->name=NULL;
@@ -383,7 +383,7 @@ bool meta_1(old,start)
 		   break;
         default  : mode=C_SPACE;
        }
-      c=*a; *a=EOS; 				/* Terminate the word */
+      c= *a; *a=EOS; 				/* Terminate the word */
      }
 #ifdef DEBUG
 fprints(2,"Found word #%s#\n",old);
@@ -400,7 +400,7 @@ fprints(2,"Found word #%s#\n",old);
            	     carray[ncand++].mode=TRUE|mode;
          	   }
      }
-    carray[ncand-1].next=&carray[ncand];	/* Join the linked list */
+    carray[ncand-1].next= &carray[ncand];	/* Join the linked list */
 
     if (a==NULL || ncand==MAXCAN) break; *a=c;
     for (old=a; *old==' '|| *old=='\t'; old++); /* Bypass whitespace */
@@ -468,8 +468,8 @@ void meta_3()
         qsort((char*)&carray[base],ncand-base,sizeof(struct candidate),compare);
 						/* Now insert into list */
         carray[ncand-1].next=a;
-	curr->next=&carray[base];
-	for (;base<ncand-1;base++) carray[base].next=&carray[base+1];
+	curr->next= &carray[base];
+	for (;base<ncand-1;base++) carray[base].next= &carray[base+1];
        }
       if (curr->mode&TRUE) { free(curr->name); curr->mode=FALSE; }
       curr->name=NULL;

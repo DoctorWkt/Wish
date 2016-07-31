@@ -171,7 +171,8 @@ int invoke(argc,argv,newfd,how)
 			/* Firstly redirect the input/output */
   redirect(newfd,&oldfd,how);
 			/* Try builtins & unredirect if yes */
-  if (argc==0 || builtin(argc,argv)) { redirect(&oldfd,NULL,0); return(0); }
+  if (argc==0 || (builtin(argc,argv)!=-1))
+    { redirect(&oldfd,NULL,0); return(0); }
 
 			/* Else fork/exec the process */
   switch(pid=fork())

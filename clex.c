@@ -13,9 +13,9 @@ int compare(a,b)
 
 /* Print out the maxlen partial match on the word
  */
-static void extend(line,pos,curs,word)
+static void extend(line,pos,word)
   char *line;
-  int *pos,curs[];
+  int *pos;
   char *word;
  {
   extern char beep[];
@@ -29,7 +29,7 @@ static void extend(line,pos,curs,word)
 
   switch(numcand)
    {
-    case 0:  write(1,beep,beeplength); return;
+    case 0:  Beep; return;
     case 1:  newword= carray[0].name;
     default: if ((newword=(char *)malloc((unsigned)maxlen+2))==NULL) return;
   	     for (i=0; i<maxlen+1; i++) newword[i]=EOS;
@@ -45,16 +45,16 @@ static void extend(line,pos,curs,word)
                }
    }
   for (i=strlen(word); i<strlen(newword); i++)
-	insert(line,(*pos)++,newword[i],curs);
+	insert(line,(*pos)++,newword[i]);
 
   if (numcand==1)
    {
     if ((carray[0].mode & S_IFMT)== S_IFDIR)
-	insert(line,(*pos)++,'/',curs);
+	insert(line,(*pos)++,'/');
     else
-	insert(line,(*pos)++,' ',curs);
+	insert(line,(*pos)++,' ');
    }
-  else { write(1,beep,beeplength); free(newword); }
+  else { Beep; free(newword); }
  }
 
 
@@ -89,7 +89,6 @@ static void colprint()
       if (carray[index].mode & 0111)
 	strcat(carray[index].name,"*");
       prints(format,carray[index].name);
-      fflush(stdout);
     }
   }
   write(1,"\n",1);
@@ -104,7 +103,11 @@ static void findfile(word)
   char partdir[MAXWL];
   char *match;
   DIR *dirp;
-  struct dirent *entry;
+#if defined(ATT) || defined(PYR)
+  struct direct *entry, *readdir();
+#else
+  struct dirent *entry, *readdir();
+#endif
   struct stat statbuf;
 
   for (i=0; i<MAXWL; i++) partdir[i]=EOS;
@@ -225,45 +228,44 @@ static void findbin(word)
  }
 
 
-void complete(line,pos,curs,how)
+void complete(line,pos,how)
  char *line;
- int *pos,curs[];
+ int *pos;
  bool how;
  {
-  extern char beep[];
+  extern char beep[], yankbuf[];
   extern int beeplength;
-  char word[MAXWL];
   int startpos;
 
   numcand=maxlen=0;
 
   if ((*pos==0) || (line[(*pos)-1]==' '))
-    { strcpy(word,""); startpos= *pos; }	/* nothing there to get */
+    { strcpy(yankbuf,""); startpos= *pos; }	/* nothing there to get */
   else				/* first get the thing we've got so far */
-    startpos= yankprev(line,*pos,word);
+    startpos= yankprev(line,*pos);
   
   if (startpos==0)
     {
-     if (*word=='.' || *word=='/') findfile(word);
-     else findbin(word);
+     if (*yankbuf=='.' || *yankbuf=='/') findfile(yankbuf);
+     else findbin(yankbuf);
     }
   else
     {
-     if (*word=='~') findpasswd(word);
-     else findfile(word);
+     if (*yankbuf=='~') findpasswd(yankbuf);
+     else findfile(yankbuf);
     }
 
   if (how==TRUE)
-     extend(line,pos,curs,word);
+     extend(line,pos,yankbuf);
   else
    {
-    if (numcand==0) write(1,beep,beeplength);
+    if (numcand==0) Beep;
     else
      {
       qsort((char *)carray,numcand,sizeof(struct candidate),compare);
       colprint();
       prprompt();
-      show(line,curs,TRUE);
+      show(line,TRUE);
      }
    }
    while ((--numcand)>=0)

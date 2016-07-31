@@ -1,6 +1,32 @@
 #include "header.h"
 
-bool echo(argc,argv)
+int export(), list(), history(), echo(), shift();
+int Bind(), unbind(), Cd();
+#ifdef JOB
+int bg(), fg(), joblist();
+#endif
+
+struct builptr {
+	char *name;
+	int  (*fptr)();
+} buillist[]= {
+	{ "cd",		Cd }	  ,
+	{ "echo",	echo }	  ,
+	{ "shift",	shift }	  ,
+	{ "list",	list }	  ,
+	{ "export",	export }  ,
+	{ "history",	history } ,
+	{ "bind",	Bind }	  ,
+	{ "unbind",	unbind }  ,
+#ifdef JOB
+	{ "bg",		bg }	  ,
+	{ "fg",		fg }	  ,
+	{ "jobs",	joblist } ,
+#endif
+	{ NULL,		NULL } };
+    
+
+int echo(argc,argv)
  int argc;
  char *argv[];
  {
@@ -15,50 +41,39 @@ bool echo(argc,argv)
     write(1," ",1);
    }
   if (doreturn) write(1,"\n",1);
-  return(TRUE);
+  return(0);
  }
 
-bool builtin(argc,argv)		/* Do builtin */
+int Cd(argc,argv)
  int argc;
  char *argv[];
  {
   extern char currdir[];
   char *path,*EVget();
 
-  if (strchr(argv[0],'=')!=NULL)
-		asg(argc,argv);
-  else if (!strcmp(argv[0],"export"))
-		export(argc,argv);
-  else if (!strcmp(argv[0],"list"))
-		list(argc,argv);
-  else if (!strcmp(argv[0],"history"))
-		history(argc,argv);
-  else if (!strcmp(argv[0],"echo"))
-		echo(argc,argv);
-  else if (!strcmp(argv[0],"shift"))
-		shift(argc,argv);
-#ifdef JOB
-  else if (!strcmp(argv[0],"bg"))
-		bg(argc,argv);
-  else if (!strcmp(argv[0],"fg"))
-		fg(argc,argv);
-  else if (!strcmp(argv[0],"jobs"))
-		joblist(argc,argv);
-#endif
-  else if (!strcmp(argv[0],"cd"))
-	 {
-	  if (argc>1) path=argv[1];
-	  else if((path=EVget("HOME"))==NULL) path=".";
-	  if (chdir(path)==-1)
-		{ fprints(2,"%s: bad directory\n",path); return(TRUE); }
+  if (argc>1) path=argv[1];
+  else if((path=EVget("HOME"))==NULL) path=".";
+  if (chdir(path)==-1)
+	{ fprints(2,"%s: bad directory\n",path); return(1); }
 #ifdef UCB
-	  if (getwd(currdir))
+  if (getwd(currdir))
 #else
-	  if (getcwd(currdir,MAXPL))
+  if (getcwd(currdir,MAXPL))
 #endif
-	    EVset("cwd",currdir);
-	  else write(2,"Can't get cwd properly\n",23);
-	 }
-  else return(FALSE);
-  return(TRUE);
+    { EVset("cwd",currdir); return(0); }
+  else { write(2,"Can't get cwd properly\n",23); return(1); }
+ }
+
+int builtin(argc,argv)		/* Do builtin. This returns either the */
+ int argc;			/* positive int value of the builtin, */
+ char *argv[];			/* or -1 indicating there was no builtin */
+ {
+  struct builptr *bptr;
+
+  if (strchr(argv[0],'=')!=NULL)
+	return(asg(argc,argv));
+  for (bptr=buillist; bptr->name!=NULL; bptr++)
+    if (!strcmp(argv[0],bptr->name))
+	return((*(bptr->fptr))(argc,argv));
+  return(-1);
  }

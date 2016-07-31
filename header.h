@@ -2,17 +2,54 @@
  * I will tidy it up one day.
  * Note most structures are in the files where they need it, unless
  * routines from different files need the structs.
+ *
+ * Also note, now only define one thing in the Makefile, header.h does
+ * the rest of the work.
  */
+
+#ifdef SYSVPYR		/* Pyramid Dual Universe machine under SysV */
+# define UNIVERSE
+# define ATT
+# define SCRIPT
+#endif
+
+#ifdef BSDPYR		/* # Pyramid Dual Universe machine under BSD 4.x */
+# define UNIVERSE
+# define UCB
+# define SCRIPT
+# define JOB
+#endif
+
+#ifdef GENSYSV		/* Generic SysV machine */
+# define ATT
+# define SCRIPT
+#endif
+
+#ifdef GENBSD		/* Generic BSD 4.x machine */
+# define UCB
+# define SCRIPT
+# define JOB
+#endif
+
+#ifdef SUN		/* Sun OS */
+# define UCB
+# define SCRIPT
+# define JOB
+#endif
+
+#ifdef COHERENT		/* Coherent */
+# define NEED_GETCWD
+#endif
+
+#ifdef MINIX		/* Minix */
+#endif
 
 #include <sys/types.h>
 #include <ctype.h>
-#include <string.h>
-#include <stdio.h>
 #include <signal.h>
 #include <errno.h>
 #include <pwd.h>
 #include <fcntl.h>
-#include <dirent.h>
 #include <sys/stat.h>
 #if defined(__STDC__) && __STDC__
 # define PROTO
@@ -28,6 +65,7 @@
 #endif
 
 #ifdef ATT
+# include <string.h>
 # include <dirent.h>
 # include <termio.h>
 # include <sys/file.h>
@@ -35,13 +73,11 @@
 #endif
 
 #ifdef MINIX
+# include <string.h>
 # include <sgtty.h>
 # include <dirent.h>
 # include <fcntl.h>
 # include <time.h>
-#  ifndef ATARI_ST
-#   include <sys/dir.h>
-#  endif
 #endif
 
 #ifdef COHERENT
@@ -53,26 +89,39 @@
 #endif
 
 #ifdef UCB
+# include <strings.h>
 # include <sgtty.h>
 # include <sys/time.h>
 # include <sys/file.h>
 # include <sys/resource.h>
+#  ifdef PYR
+#   include <sys/dir.h>
+#  else
+#   include <dirent.h>
+#  endif
 #  ifdef SUN
 #   define mc68000 1
+#   include <string.h>
 #   include <sys/wait.h>
 #  else
+#   include <strings.h>
 #   include <wait.h>
+#   define strchr  index
+#   define strrchr rindex
+extern char *strpbrk();
+extern char *strtok();
 #  endif
 #endif
 
 #ifndef NULL
 #define NULL ((void *)0)
 #endif
-#define UNDEF -1
-#define EOS 0
+#define UNDEF	-1
+#define EOS	'\0'
+#define EOF	-1
 
 #ifndef MAXSIG
-#define MAXSIG 27
+#define MAXSIG	27
 #endif
 
 #define BADFD -2
@@ -88,7 +137,7 @@
 typedef enum {FALSE,TRUE} bool;
 typedef enum {T_WORD,T_BAR,T_AMP,T_SEMI,T_GT,T_GTGT,T_LT, T_NL,T_EOF} TOKEN;
 
-#define fatal(mess) { fprintf(stderr,"%s\n",mess); exit(1); }
+#define fatal(mess) { fprints(2,"%s\n",mess); exit(1); }
 #define lastchar(string) string[strlen(string)-1]
 
 #define lowbyte(w) ((w) & 0377)
@@ -140,3 +189,15 @@ struct rdrct {
         char *ofil;                     /* Output file's name */
         char *efil;                     /* Error file's name */
         };
+
+/* Command Line Editing */
+/* Several old routines have been subsumed by one routine, Show().
+ * Unfortunately, these are used in comlined, clex and hist, so the
+ * defines that map the old onto the new have to be out here.
+ */
+
+#define insert(a,b,c)	(void)Show(a,b,c,0)
+#define show(a,c)	(void)Show(a,0,0,2)
+#define goend(a,b)	Show(a,b,0,3)
+#define yankprev(line,pos)	prevword(line,&pos,2)
+#define Beep		write(1,beep,beeplength)

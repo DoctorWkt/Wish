@@ -69,27 +69,23 @@ fprints(2,"nohistdup %d old %s line %s.\n",nohistdup,old->hline,line);
 /* Loadhist finds the command line with the given histnum, and loads it
  * at the given pos into the command line.
  */
-#ifdef PROTO
-void loadhist ( char *line , int *pos , int histnum , int curs [])
-#else
-void loadhist(line,pos,histnum,curs)
+void loadhist(line,pos,histnum)
   char *line;
-  int *pos,histnum,curs[];
-#endif
+  int *pos,histnum;
 {
-  extern void goend(),go(),clrline();
-  extern int lenprompt;
+  extern void go(),clrline();
+  extern int lenprompt,Show();
   struct histlist *ptr;
 
   *pos=0;					/* pos at home */
-  go(curs,lenprompt,0);				/* goto start of line and */
-  clrline(line,0,curs);				/* clear it */
+  go(lenprompt,0);				/* goto start of line and */
+  clrline(line,0);				/* clear it */
 		/* Find either the last hist or the histnum one */
   for (ptr=htop;ptr && ptr->hnum!=histnum;ptr=ptr->next);
   if (ptr)
   {
     strcpy(line,ptr->hline);	/* copy into the command line */
-    goend(line,pos,curs);
+    *pos= goend(line,*pos);
   }
   else;				/* we can't find that number so load nothing */
 				/* maybe it should beep here */
