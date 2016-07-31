@@ -1,446 +1,496 @@
+/* Job control. If UCBJOB is defined, we use BSD4.x job control. If POSIXJOB
+ * is defined, we use POSIX job control. IF V7JOB is defined, we provide
+ * job control using ptrace(). If none are defined, we simulate job control
+ * as best we can.
+ *
+ *  job.c: 39.4  4/14/92
+ */
+
 #include "header.h"
 
-#ifdef JOB
-#include <termio.h>	/* Need this for TCGETA definition */
+/* We define the wait return status macros for SysV. We also define
+ * WIFCORE, which evaluates as true if WIFSIGNALED is TRUE and
+ * a core has been dumped. This only works under SysV and BSD.
+ * Also defined are WRUNFG and WRUNBG, which are true is the
+ * process is running in the fore or background.
+ */
+#define RUNFG	-1		/* Status if running in fg */
+#define RUNBG	-2		/* Status if running in bg */
+
+#define WAIT_T int
+#define STATUS status
+#ifdef UCBJOB
+# undef  WAIT_T
+# undef  STATUS
+# define WAIT_T union wait
+# define STATUS status.w_status
+#endif
+
 
 /* The job structure hold the information needed to manipulate the
  * jobs, using job numbers instead of pids. Note that the linked
- * list used by Clam is ordered by jobnumber.
+ * list used by Wish is ordered by jobnumber.
  */
 struct job
 {
   int jobnumber;		/* The job number */
   int pid;			/* The pid of the job */
   char *name;			/* Job's argv[0]; */
-  /* bool rdrout;		/* Was it redirected? */
   char *dir;			/* The job's working directory */
-  union wait status;		/* Job's status */
-  long lastmod;			/* Time of last modification? */
+  WAIT_T status;		/* Job's status */
+  bool changed;			/* Changed since last CLE? */
   struct job *next;		/* Pointer to next job */
 };
 
-struct job *jtop=NULL,		/* The head of the linked list */
-	   *currentjob=NULL;	/* Pointer the the current job structure */
-bool jchange=FALSE;		/* Has a job changed state? */
-#endif
+static struct job *jtop = NULL,	/* The head of the linked list */
+	*currentjob = NULL;	/* Pointer to current job structure */
 
-static char *siglist[]= { "","Hangup","Interrupt","Quit",
-                        "Illegal Instruction","Trace/BPT Trap","IOT Trap",
-                        "EMT Trap","Floating Point Exception","Killed",
-                        "Bus Error","Segmentation Violation","Bad System Call",
-                        "Broken Pipe","Alarm", "Terminated"
-#ifdef JOB
-			,"Urgent Socket Condition","Stopped (signal)",
-                        "Stopped","Continue", "Child Status Change",
-                        "Stopped (tty input)","Stopped (tty output)","I/O",
-                        "Cpu Time Limit","File Size Limit",
-                        "Virtual Time Alarm","Profile Alarm"
-#endif
-			};
+int Exitstatus = 0;		/* The exit status of the last child */
+static bool donepipe = TRUE;	/* Addjob makes a new currentjob if this is */
+				 /* TRUE, then sets it FALSE. Joblist sets */
+ 				/* it TRUE again. */
 
-struct job *findjob();
-void rmjob();
-
-/* Statusprt is called whenever a job changes state, to show the user the
- * new state. It determines what signal was sent to the job, if it died,
- * and if a core was dumped.
- */
-void statusprt(pid,status)
- int pid;
-#ifdef JOB
- union wait status;
+#ifdef PROTO
+# define P(s) s
 #else
- int status;
-#endif
- {
-  int code;
-
-#ifdef JOB
-  if (status.w_stopval!=WSTOPPED && status.w_termsig)
-   {
-    if (status.w_termsig>=MAXSIG) return;
-    if (status.w_retcode!=0) prints("exited %d ",status.w_retcode);
-    prints(siglist[status.w_termsig]);
-    if (status.w_coredump) prints(" (core dumped)");
-    prints("\n");
-   }
-#else
-  if (status!=0 && pid!=0)
-    prints("Process %d: ",pid);
-  if (lowbyte(status)==0)
-    {
-     if ((code=highbyte(status))!=0) prints("Exit code %d\n",code);
-    }
-  else
-    {
-     if ((code = status & 0177)<=MAXSIG)
-	prints("%s",siglist[code]);
-     else
-	prints("Signal %d",code);
-     if ((status & 0200)==0200)
-	prints("-core dumped");
-     prints("\n");
-    }
-#endif
- }
-
-/* Under non-job-control, waitfor() merely wait()s for the child to change
- * status. The change of state of other processes can't easily be determined.
- */
-#ifndef JOB
-void waitfor(pid)	/* Wait for child */
- int pid;
- {
-  int wpid;
-  int status;
-
-  while((wpid=wait(&status))!=pid && wpid!=-1)
-	statusprt(wpid,status);
-  if (wpid==pid)
-	statusprt(0,status);
- }
+# define P(s) ()
 #endif
 
-#ifdef JOB
-/* Under BSD, instead of using a wait(), we merely pause(). We are woken
- * up when a signal arrives. If it was a SIGCHLD, checkjobs() caught it.
- * If it was the current job, checkjobs() will have modified the ptr or
- * the status. This is how we escape from the loop.
- */
-void waitfor(pid)       /* Wait for child */
- int pid;
- {
-  struct job *findjob();
+static struct job *findjob P((int pid ));
+static void rmjob P((struct job *ptr ));
+#undef P
 
-#ifdef DEBUG
-fprints(2,"Waiting for pid %d\n",pid);
+#ifdef POSIXJOB
+# include "posixjob.c"
 #endif
-#undef DEBUG
-  if (pid>0)
-    {
-     if (currentjob && currentjob->status.w_stopval!=WSTOPPED &&
-						currentjob->pid!=pid)
-      { prints("Looney! I'm waiting on pid %d, how can I wait on %d ?\n",
-	   currentjob->pid,pid);
-        return;
-      }
-     else currentjob=findjob(pid);
-    }
-  while (currentjob && currentjob->status.w_stopval!=WSTOPPED)
-   {
-#ifdef DEBUG
-    prints("paused\n");
+
+#ifdef UCBJOB
+# include "ucbjob.c"
 #endif
-    pause();
-   }
- }
 
-
-/* Everything below this point is only used when JOB is defined.
- */
-
-/* Setownterm sets the user's terminal as being owned by the
- * the given process group id.
- *
- * @@@ NOTE @@@ This isn't currently being used, because it stops
- *		the shell from working under script etc. I'm just
- *		leaving it here until I'm sure I don't need it.
- */
-setownterm(pid)
- int pid;
- {
-  if (pid)
-   {
-    if (ioctl(0,TIOCSPGRP,&pid)) perror("ioctl spg");
-   }
- }
-
-
-/* Settou sets up the terminal so that SIGTTOUs are sent to
- * processes which are not members of the owning process group
- */
-void settou()
- {
-  struct termio tbuf;
- 
-  if (ioctl(0,TCGETA,&tbuf)) perror("ioctl in settou");
-  tbuf.c_lflag |= TOSTOP;
-  if (ioctl(0,TCSETA,&tbuf)) perror("ioctl s");
- }
-
-
-/* Checkjobs is only called when SIGCHLD is sent. It receives the new status
- * of the child, and prints that out. If it's the child we are pause()d on,
- * rmjob will set currentjob to NULL, thus breaking out of the loop in
- * waitfor().
- */
-void checkjobs()
- {
-  union wait status;
-  int wpid;
-  struct rusage rusage;
-  struct job *thisjob;
-				/* Get status of our children */
-  signal(SIGCHLD,checkjobs);
-#ifdef DEBUG
-  prints("In checkjobs\n");
+#ifdef V7JOB
+# include "v7job.c"
 #endif
-  while ((wpid=wait3(&status,WNOHANG|WUNTRACED,&rusage))>0)
-   {
-#ifdef DEBUG
-    printf("--- Pid %d status %x\n",wpid,status);
-#endif
-#undef DEBUG
-    thisjob=findjob(wpid);
-    thisjob->status=status;
-    jchange=TRUE;
-    statusprt(wpid,status);
-    if (status.w_stopval!=WSTOPPED) rmjob(wpid);
-   }
- }
-
-
-/* Stopjob is only called when we received a SIGTSTP. If we are pause()d on
- * a pid, we send a SIGSTOP to that pid. This should then cause checkjobs()
- * to be called, which will break out of the pause() loop.
- */
-void stopjob()
- {
-  signal(SIGTSTP,stopjob);
-#ifdef DEBUG
-  prints("In stopjobs\n");
-#endif
-  if (currentjob)
-    {
-#ifdef DEBUG
-     prints("About to stop pid %d\n",currentjob->pid);
-#endif
-     kill(currentjob->pid,SIGSTOP);
-    }
- }
-
-/* Print out the list of current jobs and their status.
- * Note although this is a builtin, it is called from
- * main with an argc value of 0, to show new jobs only.
- */
-void joblist(argc,argv)
- int argc;
- char *argv[];
-{
-  struct job *ptr;
-
-  if (argc>1) { prints("Usage: jobs\n"); return; }
-  if (argc==0 && jchange==FALSE) return;
-  for (ptr=jtop;ptr;ptr=ptr->next)
-  {
-    if (currentjob && currentjob->pid==ptr->pid)
-      prints("    + [%d] %d",ptr->jobnumber,ptr->pid);
-    else
-      prints("      [%d] %d",ptr->jobnumber,ptr->pid);
-    if (ptr->status.w_stopval==WSTOPPED)
-	prints(" %s   ",siglist[ptr->status.w_stopsig]);
-    prints(" %s\n",ptr->name);
-  }
-  jchange=FALSE;
-}
-
 
 /* Given a process id, return a pointer to it's job structure */
-#ifdef PROTO
-struct job *findjob ( int pid )
-#else
-struct job *findjob(pid)
+static struct job *
+findjob(pid)
   int pid;
-#endif
 {
   struct job *ptr;
 
-  for (ptr=jtop;ptr;ptr=ptr->next)
-    if (ptr->pid==pid) return(ptr);
-  return(0);
+  for (ptr = jtop; ptr; ptr = ptr->next)
+    if (ptr->pid == pid)
+      return (ptr);
+  return (NULL);
 }
 
 
 /* Given a job number, return it's process id */
-#ifdef PROTO
-int pidfromjob ( int jobno )
-#else
-int pidfromjob(jobno)
+static int
+pidfromjob(jobno)
   int jobno;
-#endif
 {
   struct job *ptr;
 
-  for (ptr=jtop;ptr;ptr=ptr->next)
-    if (ptr->jobnumber==jobno) return(ptr->pid);
-  return(-1);
+  for (ptr = jtop; ptr; ptr = ptr->next)
+    if (ptr->jobnumber == jobno)
+      return (ptr->pid);
+  return (-1);
 }
 
 
 /* Add the pid and it's argv[0] to the job list. Return the allocated
  * job number.
  */
-#ifdef PROTO
-int addjob ( int pid , char *name )
-#else
-int addjob(pid,name)
-  int pid;
+int
+addjob(pid, name, isbg)
+  int pid, isbg;
   char *name;
-#endif
 {
   extern char currdir[];
-  int jobno,last=0;
-  struct job *ptr,*old,*new;
-					/* Build the structure */
-  ptr=old=(struct job *)malloc((unsigned) sizeof(struct job));
-  if (ptr==NULL) { perror("addjob"); return(0); }
-  ptr->pid=pid;
-  ptr->name=(char *) malloc ((unsigned)(strlen(name)+1));
-  if (ptr->name) (void) strcpy(ptr->name,name);
-  else { perror("addjob"); return(0); }
-  ptr->status.w_status=0;
-  ptr->dir=(char *) malloc ((unsigned)(strlen(currdir)+1));
-  if (ptr->dir) (void)strcpy(ptr->dir,currdir);
-  else { perror("addjob"); return(0); }
-  ptr->lastmod=time((long *)0);
-  ptr->next= (struct job *)NULL;
-					/* Find the end of list */
-  if (jtop==NULL)
-   { jobno=ptr->jobnumber=1;
-     jtop=ptr;
-   }
+  int jobno, last = 0;
+  struct job *ptr, *old, *new;
+
+#ifndef V7JOB
+  if (currentjob && donepipe == FALSE)	/* We already have a current job */
+  {
+#ifdef DEBUG
+    fprints(2, "I already got one, you sons of a donkey\n");
+#endif
+    return (0);
+  }
+#endif
+  /* Build the structure */
+  ptr = old = (struct job *) malloc((unsigned) sizeof(struct job));
+  if (ptr == NULL)
+  {
+    perror("addjob");
+    return (0);
+  }
+  ptr->pid = pid;
+  ptr->name = (char *) malloc((unsigned) (strlen(name) + 1));
+  if (ptr->name)
+    (void) strcpy(ptr->name, name);
   else
-   {
-    for (last=0,old=new=jtop;		/* Find a gap to put the node in */
-         new!=NULL&&new->jobnumber-last==1;
-         old=new,last=new->jobnumber,new=new->next);
+  {
+    perror("addjob");
+    return (0);
+  }
+  /* We need some way of indicating the child */
+  /* is still running. I am using RUNxx for now. */
+  if (isbg)
+    ptr->STATUS = RUNBG;
+  else
+    ptr->STATUS = RUNFG;
+
+  ptr->dir = (char *) malloc((unsigned) (strlen(currdir) + 1));
+  if (ptr->dir)
+    (void) strcpy(ptr->dir, currdir);
+  else
+  {
+    perror("addjob");
+    return (0);
+  }
+  ptr->changed = FALSE;
+  
+  /* Find the end of list */
+  if (jtop == NULL)
+  {
+    jobno = ptr->jobnumber = 1;
+    jtop = ptr; ptr->next = NULL;
+  }
+  else
+  {				/* Find a gap to put the node in */
+    for (last = 0, old = new = jtop;
+	 new != NULL && new->jobnumber - last == 1;
+	 old = new, last = new->jobnumber, new = new->next);
     last++;
-    if (new==NULL) { old->next=ptr; ptr->next=NULL; }
-    else { ptr->next=new;  old->next=ptr; }
-    jobno=ptr->jobnumber=last;
-   }
-  /* currentjob=ptr;			/* a new current job */
-#ifdef DEBUG
-fprints(2,"added jobno %d pid %d\n",jobno,pid);
-#endif
-  return(jobno);
-}
-
-/* Given a process id, remove the matching job from the job list */
-#ifdef PROTO
-void rmjob ( int pid )
-#else
-void rmjob(pid)
-  int pid;
-#endif
-{
-  struct job *ptr,*old;
-  int i;
-
-#ifdef DEBUG
-fprints(2,"removing pid %d from list\n",pid);
-#endif
-  for (i=0,old=ptr=jtop;ptr;i++,old=ptr,ptr=ptr->next)
-    if (ptr->pid==pid)
-      if (i)
-      {
-	old->next=ptr->next;
-	free(ptr->name);
-	if (ptr==currentjob) currentjob=NULL;
-	free(ptr);
-	break;
-      }
-      else
-      {
-	jtop=jtop->next;
-	free(ptr->name);
-	if (ptr==currentjob) currentjob=NULL;
-	free(ptr);
-	break;
-      }
-}
-
-/* Builtins */
-void bg(argc,argv)
- int argc;
- char *argv[];
- {
-  int pid;
-  char *c;
-
-  if (argc>2) { prints("usage: bg [pid]\n"); return; }
-  if (argc==1)
-   {
-#ifdef DEBUG
-prints("Trying to use current job pointer\n");
-#endif
-    if (currentjob)
+    if (new == NULL)
     {
-      pid=currentjob->pid;
+      old->next = ptr;
+      ptr->next = NULL;
     }
-   }
-  else
-   {
-    c= argv[1];
-    if (*c=='%') pid=pidfromjob(atoi(++c));
-    else pid=atoi(c);
-   }
-  if (pid<1)
-   { fprints(2,"No such job number: %s\n",c); return; }
-  setpgrp(pid,pid);
+    else
+    {
+      ptr->next = new;
+      old->next = ptr;
+    }
+    jobno = ptr->jobnumber = last;
+  }
+
+  currentjob = ptr;		/* a new current job */
+  donepipe = FALSE;
 #ifdef DEBUG
-  prints("About to SIGCONT %d\n",pid);
+  fprints(2, "added jobno %d pid %d\n", jobno, pid);
 #endif
-  kill(pid,SIGCONT);
- }
+  return (jobno);
+}
 
-
-void fg(argc,argv)
- int argc;
- char *argv[];
- {
-  extern char currdir[];
-  int pid;
+/* Remove the job from the job list */
+static void
+rmjob(ptr)
   struct job *ptr;
+{
+  struct job *prev;
+
+  if (ptr==NULL) return;
+#ifdef DEBUG
+  fprints(2, "removing pid %d from list\n", ptr->pid);
+#endif
+  if (ptr==jtop) jtop=jtop->next;
+  else
+   { for (prev=jtop;prev && prev->next!=ptr; prev=prev->next);
+     if (prev==NULL) return;
+     prev->next= ptr->next;
+   }
+	free(ptr->name);
+	if (ptr == currentjob)
+	{
+	  currentjob = NULL;
+	  Exitstatus = (WIFEXITED(ptr->status)) ? WEXITSTATUS(ptr->status) : 1;
+	}
+	free(ptr);
+}
+
+/* Print out the list of current jobs and their status.
+ * Note although this is a builtin, it is called from
+ * main with an argc value of 0, to show new jobs only.
+ */
+int
+joblist(argc, argv)
+  int argc;
+  char *argv[];
+
+{
+  struct job *ptr, *next;
+  bool exitzero;
+
+  if (argc > 1)
+  {
+    prints("Usage: jobs\n");
+    return (1);
+  }
+
+#if defined(UCBJOB) || defined(POSIXJOB)
+  waitfor(0);			/* Collect any jobs doline() might have missed */
+#endif
+
+  for (ptr = jtop; ptr; ptr = ptr->next)
+  {
+/* Printing out conditions are tricky. We print if we're being called as
+ * a builtin (when argc!=0); otherwise only if the status has changed,
+ * and it wasn't the current job or exited with an exit status of 0.
+ * Also don't print if it's RUNFG or RUNBG.
+ */
+    exitzero = (WIFEXITED(ptr->status) && (WEXITSTATUS(ptr->status) == 0));
+    if (argc || (ptr->changed && !WRUNFG(ptr->status) && !WRUNBG(ptr->status)
+		 && ptr != currentjob && !exitzero))
+    {
+      if (currentjob && currentjob->pid == ptr->pid)
+	prints("    + [%d] %d", ptr->jobnumber, ptr->pid);
+      else
+	prints("      [%d] %d", ptr->jobnumber, ptr->pid);
+      prints(" %s  ", ptr->name);
+      /* Still running */
+      if (WRUNFG(ptr->status) || WRUNBG(ptr->status))
+      {
+	prints("\n");
+	continue;
+      }
+      if (WIFEXITED(ptr->status))
+      {
+	prints(" Exited %d\n", WEXITSTATUS(ptr->status));
+	continue;
+      }
+      if (WIFSTOPPED(ptr->status))
+      {
+	prints(" Stopped %s\n", siglist[WSTOPSIG(ptr->status)]);
+	continue;
+      }
+      if (WIFSIGNALED(ptr->status))
+      {
+	prints(" %s", siglist[WTERMSIG(ptr->status)]);
+	if (WIFCORE(ptr->status))
+	  prints(" (core dumped)\n");
+	else
+	  prints("\n");
+	continue;
+      }
+    }
+  }
+  for (ptr = jtop; ptr; ptr = next)
+  {
+   next= ptr->next;
+   if (WRUNFG(ptr->status) || WRUNBG(ptr->status)|| WIFSTOPPED(ptr->status))
+      ptr->changed = FALSE;
+    else
+      rmjob(ptr);
+  }
+  donepipe = TRUE;		/* It must be, if doline() is calling us */
+  return (0);
+}
+
+int
+Kill(argc, argv)
+  int argc;
+  char *argv[];
+
+{
+  int i, pid, sig = 0;
+  char *jobname, *sigwd;
+#ifdef V7JOB
+  struct job *job;
+#endif
+
+  switch (argc)
+  {
+    case 2:
+      sig = 9;
+      jobname = argv[1];
+      goto killit;		/* Yuk, a goto */
+    case 3:
+      jobname = argv[2];
+      sigwd = argv[1];
+      if (*sigwd == '-')
+	sigwd++;
+      sig = atoi(sigwd);
+      if (sig == 0)
+	for (i = 1; signame[i]; i++)
+	  if (!strcmp(sigwd, signame[i]))
+	  {
+	    sig = i;
+	    break;
+	  }
+  killit:
+      if (sig == 0)
+      {
+	fprints(2,"Bad signal argument\n");
+	return (1);
+      }
+      if (*jobname == '%')
+	pid = pidfromjob(atoi(++jobname));
+      else
+	pid = atoi(jobname);
+      if (pid < 1)
+      {
+	fprints(2, "No such job number: %s\n", jobname);
+	return (1);
+      }
+#ifdef V7JOB
+/* A stopped job can't be killed until the parent (i.e us) restarts it.
+ * So if the job is stopped, we restart it so we can kill it :-)
+ */
+      job= findjob(pid);
+      if (job && WIFSTOPPED(job->status))
+	{
+# ifdef DEBUG
+	fprints(2,"About to restart ptrace the job\n");
+# endif
+     	  ptrace(7,pid,(PLONG)1,(PLONG)0);	/* Start it up again */
+	}
+#endif
+      kill(pid, sig);
+      return (0);
+    default:
+      prints("Usage: kill [-]signame|number job|pid\n");
+      prints("  Signal names are:\n");
+      for (i = 1; signame[i]; i++)
+      {
+	if (i % 6 == 1)
+	  prints("    ");
+	prints("%s  ", signame[i]);
+	if (i % 6 == 0)
+	  prints("\n");
+      }
+      prints("\n");
+      return (1);
+  }
+}
+
+
+#if defined(UCBJOB) || defined(POSIXJOB) || defined(V7JOB)
+/* Builtins */
+int
+bg(argc, argv)
+  int argc;
+  char *argv[];
+
+{
+  int pid;
   char *c;
 
-  if (argc>2) { prints("usage: fg [pid]\n"); return; }
-  if (argc==1)
-   {
+  if (argc > 2)
+  {
+    prints("usage: bg [pid]\n");
+    return (1);
+  }
+  if (argc == 1)
+  {
 #ifdef DEBUG
-prints("Trying to use current job pointer\n");
+    fprints(2,"Trying to use current job pointer\n");
 #endif
     if (currentjob)
     {
-      pid=currentjob->pid;
+      pid = currentjob->pid;
     }
-   }
+  }
   else
-   {
-    c= argv[1];
-    if (*c=='%') pid=pidfromjob(atoi(++c));
-    else pid=atoi(c);
-   }
-  if (pid<1)
-   { fprints(2,"No such job number: %s\n",c); return; }
-#ifdef DEBUG
-  prints("About to setpgrp pid%d to us\n",pid);
-#endif
-  if (setpgrp(pid,getpgrp(0))==-1)  /* set process group to the shell's */
-   { perror("fg setpgrp"); return; }
+  {
+    c = argv[1];
+    if (*c == '%')
+      pid = pidfromjob(atoi(++c));
+    else
+      pid = atoi(c);
+  }
+  if (pid < 1)
+  {
+    fprints(2, "No such job number: %s\n", c);
+    return (1);
+  }
+  bgstuff(pid);
 
-  ptr=findjob(pid);
-  if (strcmp(ptr->dir,currdir))		/* If directory has changed */
-    fprints(2,"[%d] %d %s (wd now: %s)\n",ptr->jobnumber,ptr->pid,
-					ptr->name,ptr->dir);
-  else
-    fprints(2,"[%d] %d %s\n",ptr->jobnumber,ptr->pid,ptr->name);
-  ptr->status.w_status=0;
-  currentjob=ptr;
-					/* and finally wake them up */
+  return (0);
+}
+
+
+/* Fg is a special builtin. Instead of returning an exitstatus, it returns
+ * the pid of the fg'd process. Builtin() knows about this.
+ */
+int
+fg(argc, argv)
+  int argc;
+  char *argv[];
+
+{
+  extern char currdir[];
+  extern struct vallist vlist;
+  int pid;
+   struct job *ptr;
+  char *c;
+
+  if (argc > 2)
+  {
+    prints("usage: fg [pid]\n");
+    return (0);
+  }
+  if (argc == 1)
+  {
 #ifdef DEBUG
-  prints("About to SIGCONT %d\n",pid);
+    fprints(2,"Trying to use current job pointer\n");
 #endif
-  kill(pid,SIGCONT);
- }
-#endif /* JOB */
+    if (currentjob)
+    {
+      pid = currentjob->pid;
+    }
+  }
+  else
+  {
+    c = argv[1];
+    if (*c == '%')
+      pid = pidfromjob(atoi(++c));
+    else
+      pid = atoi(c);
+  }
+  if (pid < 1)
+  {
+    fprints(2, "No such job number: %s\n", c);
+    return (0);
+  }
+
+  if (fgstuff(pid)) return(0);
+
+  ptr = findjob(pid);
+  if (ptr)
+  {
+    if (strcmp(ptr->dir, currdir))	/* If directory has changed */
+     {
+      fprints(2, "[%d] %d %s (wd now: %s)\n", ptr->jobnumber, ptr->pid,
+	      ptr->name, ptr->dir);
+
+      chdir(ptr->dir);			/* Reset our current directory */
+      strcpy(currdir,ptr->dir);
+      setval("cwd", currdir, &vlist);
+     }
+    else
+      fprints(2, "[%d] %d %s\n", ptr->jobnumber, ptr->pid, ptr->name);
+  }
+  else
+  {
+    fprints(2, "Couldn't find job ptr in fg\n");
+    return (0);
+  }
+					/* and finally wake them up */
+
+#ifndef V7JOB
+# ifdef DEBUG
+  fprints(2,"About to SIGCONT %d\n", pid);
+# endif
+  kill(pid, SIGCONT);
+#endif
+
+    ptr->STATUS = RUNFG;
+  currentjob = ptr;
+  return (pid);
+}
+#endif /* defined(UCBJOB) || defined(POSIXJOB) || defined(V7JOB) */

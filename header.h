@@ -1,142 +1,39 @@
-/* This is at the moment a severe mangle of the Clam header.h
- * I will tidy it up one day.
- * Note most structures are in the files where they need it, unless
- * routines from different files need the structs.
+/* Definitions of all the various names and macros that we need to
+ * compile Wish.
  *
- * Also note, now only define one thing in the Makefile, header.h does
- * the rest of the work.
+ * header.h: 40.5  8/4/93
  */
 
-#ifdef SYSVPYR		/* Pyramid Dual Universe machine under SysV */
-# define UNIVERSE
-# define ATT
-# define SCRIPT
-# define VARARGS
-#endif
+#include "machine.h"
 
-#ifdef BSDPYR		/* # Pyramid Dual Universe machine under BSD 4.x */
-# define UNIVERSE
-# define UCB
-# define SCRIPT
-# define JOB
-# define USES_DIRECT	/* Uses struct direct, not struct dirent */
-# define VARARGS
-#endif
-
-#ifdef GENSYSV		/* Generic SysV machine */
-# define ATT
-# define SCRIPT
-# define VARARGS
-#endif
-
-#ifdef GENBSD		/* Generic BSD 4.x machine */
-# define UCB
-# define SCRIPT
-# define JOB
-# define VARARGS
-#endif
-
-#ifdef SUN		/* Sun OS */
-# define UCB
-# define SCRIPT
-# define JOB
-# define VARARGS
-#endif
-
-#ifdef COHERENT		/* Coherent */
-# define NEED_GETCWD
-#endif
-
-#ifdef MINIX		/* Minix */
-# define STDARG
-#endif
-
-#include <sys/types.h>
-#include <ctype.h>
-#include <signal.h>
-#include <errno.h>
-#include <pwd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#if defined(__STDC__) && __STDC__
+#if defined(__STDC__) && __STDC__ && !defined(MINIX1_5)
 # define PROTO
+# define CONST const
 # ifndef __GNUC__
 #  include <stdlib.h>
 # endif
+#else
+# define CONST
 #endif
 
-#if !defined(ATT) && !defined(UCB) && !defined(MINIX) && !defined(COHERENT)
-+++
-        You must define one of ATT, UCB, MINIX or COHERENT
-+++
+#ifndef NULL				/* Generic null pointer. May need */
+# define NULL	0			/* changing on some machines to */
+#endif					/* (char *)0 or (void *)0 */
+
+#ifndef SIGTYPE				/* Signal handlers return this */
+# define SIGTYPE void
 #endif
 
-#ifdef ATT
-# include <string.h>
-# include <dirent.h>
-# include <termio.h>
-# include <sys/file.h>
-# include <sys/time.h>
-#endif
+#undef EOF				/* Minix defines this in stdio.h */
+#define EOF	-1
 
-#ifdef MINIX
-# include <string.h>
-# include <stdio.h>		/* Because strings NULL won't work with ACK */
-# include <sgtty.h>
-# include <dirent.h>
-# include <fcntl.h>
-# include <time.h>
+#ifndef MAXSIG
+# define MAXSIG	27			/* Maximum signals known to Wish */
 #endif
-
-#ifdef COHERENT
-# include <string.h>
-# include <dirent.h>
-# include <sgtty.h>
-# include <sys/fcntl.h>
-# include <time.h>
-#endif
-
-#ifdef UCB
-# include <strings.h>
-# include <sgtty.h>
-# include <sys/time.h>
-# include <sys/file.h>
-# include <sys/resource.h>
-#  ifdef USES_DIRECT
-#   include <sys/dir.h>
-#  else
-#   include <dirent.h>
-#  endif
-#  ifdef SUN
-#   define mc68000 1
-#   include <string.h>
-#   include <sys/wait.h>
-#  else
-#   include <strings.h>
-#   include <wait.h>
-#   define strchr  index
-#   define strrchr rindex
-extern char *strpbrk();
-extern char *strtok();
-extern int strspn();
-#  endif
-#endif
-
-#ifndef NULL				/* Generic null pointer, May need */
-#define NULL ((void *)0)		/* changing on some machines, to */
-#endif					/* (char *)0, or even just 0 */
 
 #define UNDEF	-1			/* Used when setting cbreak etc. */
 #define EOS	'\0'			/* End of string terminator */
-#ifndef MINIX
-#define EOF	-1			/* End of file error value */
-#endif
-
-#ifndef MAXSIG
-#define MAXSIG	27			/* Maximum signals known to Clam */
-#endif
-
-#define BADFD -2
+#define BADFD	-2
 #define MAXARG   300			/* Max # args passed to processes */
 #define MAXWORD  200			/* Only used in parse, try to lose */
 #define MAXFNAME 200			/* Only used in parse, try to lose */
@@ -146,31 +43,42 @@ extern int strspn();
 #define MAXCAN  1000			/* maximum number of candidates */
 
 
-typedef enum {FALSE,TRUE} bool;		/* Boolean type */
+/* The following used to be enums,
+ * but they get used an awful lot
+ * with ints.
+ */
+#undef  TRUE
+#undef  FALSE
+#define TRUE  1
+#define FALSE 0
+typedef int bool;		/* Must be int as we pass bools as f'n args */
+typedef unsigned char uchar;	/* CLE uses unsigned chars throughout */
+
+/* We use the following when debugging malloc/free */
+#ifdef MALLOCDEBUG
+# define free myFree
+# define malloc myMalloc
+#endif
 
 #define fatal(mess) { fprints(2,"%s\n",mess); exit(1); }
 
-/* These only used in job */
-#define lowbyte(w) ((w) & 0377)
-#define highbyte(w) lowbyte((w) >> 8)
 
-
-/* Aliases
- *
- * These structures are used to store the alias definitions.
+/*
+ * These structures are used to store the definitions for aliases, history,
+ * the tilde lists, variables.
  */
 
-struct adefn
-{
-  char *a_line;
-  struct adefn *nextln;
+struct val {
+        char *name;             /* The name of the var/history/tilde/alias */
+        char *val;              /* The value */
+        int hnum;               /* History only: the history number */
+        bool exported;          /* Variable only: is this exported? */
+        struct val *next;
 };
 
-struct alias
-{
-  char *a_name;
-  struct adefn *defin;
-  struct alias *next;
+struct vallist {
+        struct val *head;       /* Singly-linked list with head/tail */
+        struct val *tail;
 };
 
 /* Clex and Meta
@@ -182,38 +90,41 @@ struct alias
  * eventually be parsed by the parser. Here, the mode is a complex bitfield.
  * For normal words,the mode is used as a bitfield to indicate:
  *	- if the name has been malloc'd (mode&TRUE)
- *	- if the name has an invisible space in the end (mode&C_SPACE)
+ *	- if the name has an invisible space at the end (mode&C_SPACE)
  *	- if the name is in single quotes (mode&C_QUOTE)
- *	- if the name is in double quotes (mode&C_DBLQUOTE)
  *	- if the name is in backquotes (mode&C_BACKQUOTE)
+ *	- if the name is in curly brackets (mode&C_CURLY)
+ *	- if the name starts with a $ sign (mode&C_DOLLAR)
  * Often there will be nodes in the list with mode==0 & name==NULL, these
  * indicate words removed during meta and should be skipped by the parser.
  */
 
 #define C_SPACE		002		/* Word has a space on the end */
-#define C_QUOTE		004		/* Word in single quotes */
-#define C_DBLQUOTE	010		/* Word in double quotes */
-#define C_BACKQUOTE	020		/* Word in backquotes */
-#define C_QUOTEBITS	034		/* Bits used for quotes */
+#define C_DOLLAR	004		/* Word starts with a $ sign */
+#define C_QUOTE		010		/* Word in single quotes */
+/* #define C_DBLQUOTE	020		* Word in double quotes */
+#define C_CURLY		020		/* Word in curly braces {} */
+#define C_BACKQUOTE	040		/* Word in backquotes */
+/* #define C_QUOTEBITS	060		* Dbl and back quote bits */
 
 /* Some words have name==NULL & mode!=0; these are special words for the
  * parser. They are separate, non-malloc'd, non-quoted words, and the bits
  * used above can be reused. The bits must be in C_WORDMASK
  */
-#define C_WORDMASK	0740		/* Bits must fall in here */
+#define C_WORDMASK	01700		/* Bits must fall in here */
 
-#define C_SEMI		 040		/* The word is a semicolon */
+#define C_SEMI		 0100		/* The word is a semicolon */
 #define C_DOUBLE	C_SEMI		/* Add this to `double' the symbol */
-#define C_PIPE		0100		/* The word is a pipe */
-#define C_DBLPIPE	0140		/* The word is a double pipe */
-#define C_AMP		0200		/* The word is an ampersand */
-#define C_DBLAMP	0240		/* The word is a double ampersand */
-#define C_LT		0300		/* The word is a less-than. */
-#define C_LTLT		0340		/* The word is two less-thans. */
-#define C_FD		 017		/* File descriptor bits */
-#define C_GT		0400		/* The word is a greater-than. Bits */
-					/* in the mask C_FD hold the fd (0-9) */
-#define C_GTGT		0440		/* The word is two greater-thans.Bits */
+#define C_PIPE		 0200		/* The word is a pipe */
+#define C_DBLPIPE	 0300		/* The word is a double pipe */
+#define C_AMP		 0400		/* The word is an ampersand */
+#define C_DBLAMP	 0500		/* The word is a double ampersand */
+#define C_LT		 0600		/* The word is a less-than. */
+#define C_LTLT		 0700		/* The word is two less-thans. */
+#define C_FD		   03		/* File descriptor bits */
+#define C_GT		01000		/* The word is a greater-than. Bits */
+					/* in the mask C_FD hold the fd (1-2) */
+#define C_GTGT		01100		/* The word is two greater-thans.Bits */
 					/* in the mask C_FD hold the fd (0-9) */
 struct candidate
 	{ char *name;			/* The file's name */
@@ -224,21 +135,18 @@ struct candidate
 /* Execution
  *
  * The how parameter to execute() indicates how the process should be
- * executed. Most of the bits are currently defined but not used.
+ * executed.
  */
 
-#define H_APPEND        001             /* Process will append to outfd */
 #define H_BCKGND        002             /* Process running in background */
-#define H_PIPEDIN       004             /* Process has piped input */
-#define H_PIPEDOUT      010             /* Process has piped output */
-#define H_FROMFILE      020             /* Process has file input */
-#define H_TOFILE        040             /* Process has file output */
+#define H_FROMFILE	004		/* Process has input from file */
+#define H_APPEND	010		/* Process is appending output */
  
 /* Redirection
  *
  * The rdrct structure holds the new file descriptors for the process,
- * or their file names (if any). Redirect() gets 10 of these, and 
- * for (i=0 to 9) { if name not null, open(name); else if fd not 0,
+ * or their file names (if any). Redirect() gets 3 of these, and 
+ * for (i=0 to 2) { if name not null, open(name); else if fd not 0,
  * dup2(fd,i); }
  * The how field can have the H_ bits described above.
  */
@@ -261,3 +169,17 @@ struct rdrct {
 #define goend(a,b)		Show(a,b,0,3)
 #define yankprev(line,pos)	prevword(line,&pos,2)
 #define Beep			write(1,beep,beeplength)
+
+
+/* Builtins
+ *
+ * The following structure holds the builtins. This is only used by
+ * builtin.c and clex.c. Pity we can't leave it in builtin.c
+ */
+
+struct builptr {
+        char *name;
+        int  (*fptr)();
+	};
+
+#include "proto.h"

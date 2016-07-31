@@ -1,183 +1,310 @@
-#include "header.h"
-
-int beeplength;
-char termcapbuf[1024],bs[20],nd[20],cl[20],cd[20],up[20],so[20],se[20],beep[20];
-
 /* This file contains routines for setting the terminal characteristics,
  * and for getting the termcap strings.
+ *
+ * term.c: 40.3  8/2/93
  */
 
-#ifdef DEBUG
-/* Printctrl prints out a terminal sequence that Clam got
- * from termcap. Only used when debugging the ensure Clam
- * is actually getting the strings, and the right ones.
- */
-void printctrl(name,str)
- char *name, *str;
- {
-  int i;
+#include "header.h"
 
-  prints("%s: ",name);
-  for (i=0;str[i];i++)
-  if (str[i]>31) putchar(str[i]);
-  else { putchar('^');
-         if (str[i]>26) putchar(str[i]+64);
-         else putchar(str[i]+96);
-       }
-  putchar('\n');
- }
+int beeplength;			/* Strlen of beep */
+
+ /* The termcap strings Wish uses */
+char *bs, *nd, *cl, *cd, *up, *so, *se, *beep;
+
+static char *termcapbuf;	/* Buffer to get termcap strings */
+
+/* Wish keeps the ``normal'' terminal characteristics (i.e the ones Wish's
+ * children see) in a structure, and restores the characteristics each
+ * time it forks. The structure depends upon the OS we are being compiled
+ * under.
+ */
+
+#ifdef ATT
+static struct termio tbuf, tbuf2;
+
 #endif
 
-/* Setcbreak: Set terminal to cbreak mode */
-void setcbreak()
+#if defined(UCB) || defined(MINIX1_5)
+static struct sgttyb tbuf, tbuf2;
+static struct tchars sbuf, sbuf2;
+
+#ifdef UCB
+static struct ltchars moresigc, moresigc2;
+
+#endif
+#endif
+
+#ifdef POSIX
+static struct termios tbuf, tbuf2;
+
+#endif
+
+
+#ifdef DEBUG
+/* Printctrl prints out a terminal sequence that Wish got
+ * from termcap. Only used when debugging the ensure Wish
+ * is actually getting the strings, and the right ones.
+ */
+static void
+printctrl(name, str)
+  char *name, *str;
 {
- 
+  int i;
+
+  prints("%s: ", name);
+  for (i = 0; str[i]; i++)
+    if (str[i] > 31)
+      prints("%c",str[i]);
+    else
+    {
+      prints("%c",'^');
+      if (str[i] > 26)
+	prints("%c",str[i] + 64);
+      else
+	prints("%c",str[i] + 96);
+    }
+  prints('\n');
+}
+
+#endif
+
+
+/* There are 3 versions of getstty, setcooked and setcbreak, for ATT, POSIX and
+ * UCB/MINIX1_5/COHERENT
+ */
+
 #ifdef ATT
-  struct termio tbuf;
- 
-  if (ioctl(0,TCGETA,&tbuf)) perror("ioctl in setup");
-  tbuf.c_lflag = tbuf.c_lflag & (~ICANON) & (~ECHO);
-  tbuf.c_cc[4]=1;               /* read 1 char before returning like CBREAK */
-  if (ioctl(0,TCSETA,&tbuf)) perror("ioctl s");
+/* Getstty: Get the current terminal structures for Wish */
+void
+getstty()
+{
+  if (ioctl(0, TCGETA, &tbuf))
+    perror("ioctl in getstty");
+  memcpy(&tbuf2, &tbuf, sizeof(tbuf));
+}
 
-#else
-  struct sgttyb t, *termod= &t;
-  struct tchars s, *setsigc= &s;
-# ifdef UCB
-  struct ltchars moresigc;
-# endif
+/* Setcbreak: Set terminal to cbreak mode */
+void
+setcbreak()
+{
+  bool keepstty;
 
-/* setup terminal with ioctl calls */
+  if (EVget("Keepstty"))
+    keepstty = TRUE;
+  else
+    keepstty = FALSE;
 
-  if (ioctl(0,TIOCGETP,termod))         /* get the sgttyb struct */
+  if (!keepstty)
+    getstty();
+  tbuf2.c_lflag &= ~(ICANON | ECHO | ISIG); /* Turn off canonical input and echo */
+  tbuf2.c_cc[4] = 1;		/* read 1 char before returning like CBREAK */
+  if (ioctl(0, TCSETA, &tbuf2))
     perror("ioctl in setcbreak");
-  termod->sg_flags |= CBREAK;           /* cbreak mode to get each char */
-  termod->sg_flags &= (~ECHO);          /* do not echo chars to screen */
-  if (ioctl(0,TIOCSETP,termod))         /* put it back, modified */
+}
+
+/* Setcooked: Set terminal to cooked mode */
+void
+setcooked()
+{
+  if (ioctl(0, TCSETA, &tbuf))
+    perror("ioctl in setcooked");
+}
+
+#endif				/* ATT */
+
+
+#ifdef POSIX
+/* Getstty: Get the current terminal structures for Wish */
+void
+getstty()
+{
+  if (tcgetattr(0, &tbuf))
+    perror("tcgetattr in getstty");
+  memcpy(&tbuf2, &tbuf, sizeof(tbuf));
+}
+
+/* Setcbreak: Set terminal to cbreak mode */
+void
+setcbreak()
+{
+  int i;
+  bool keepstty;
+
+  if (EVget("Keepstty"))
+    keepstty = TRUE;
+  else
+    keepstty = FALSE;
+
+  if (!keepstty)
+    getstty();
+  /* Turn off canonical input and echo */
+  tbuf2.c_lflag = tbuf2.c_lflag & (~ICANON) & (~ECHO);
+  for (i=0; i< NCCS; i++) tbuf2.c_cc[i]=0;
+  tbuf2.c_cc[VMIN] = 1;		/* read 1 char before returning like CBREAK */
+  if (tcsetattr(0, TCSANOW, &tbuf2))
+    perror("cbreak tcsetattr");
+}
+
+/* Setcooked: Set terminal to cooked mode */
+void
+setcooked()
+{
+  if (tcsetattr(0, TCSANOW, &tbuf))
+    perror("cooked tcsetattr");
+}
+
+#endif				/* POSIX */
+
+
+#if defined(UCB) || defined(MINIX1_5)
+/* Getstty: Get the current terminal structures for Wish */
+void
+getstty()
+{
+  if (ioctl(0, TIOCGETP, &tbuf))/* get the sgttyb struct */
+    perror("ioctl2 in getstty");
+  if (ioctl(0, TIOCGETC, &sbuf))/* get the tchars struct */
+    perror("ioctl3 in getstty");
+#ifdef UCB
+  bcopy(&sbuf, &sbuf2, sizeof(sbuf));	/* and copy them so we can change */
+  bcopy(&tbuf, &tbuf2, sizeof(tbuf));
+  if (ioctl(0, TIOCGLTC, &moresigc))	/* get the ltchars struct */
+    perror("ioctl4 in getstty");
+  bcopy(&moresigc, &moresigc2, sizeof(moresigc));
+#else
+  memcpy(&sbuf2, &sbuf, sizeof(sbuf));	/* and copy them so we can change */
+  memcpy(&tbuf2, &tbuf, sizeof(tbuf));
+#endif
+}
+
+/* Setcbreak: Set terminal to cbreak mode */
+void
+setcbreak()
+{
+  bool keepstty;
+
+  if (EVget("Keepstty"))
+    keepstty = TRUE;
+  else
+    keepstty = FALSE;
+
+  if (!keepstty)
+    getstty();
+  /* setup terminal with ioctl calls */
+
+  tbuf2.sg_flags |= CBREAK;	/* cbreak mode to get each char */
+  tbuf2.sg_flags &= (~ECHO);	/* do not echo chars to screen */
+  if (ioctl(0, TIOCSETP, &tbuf2))	/* put it back, modified */
     perror("ioctl1 su");
-  if (ioctl(0,TIOCGETC,setsigc))        /* get the tchars struct */
-    perror("ioctl2 in setcbreak");
-  setsigc->t_intrc=(UNDEF);             /* no interrupt or quitting */
-  /*setsigc->t_quitc=(UNDEF); 		   Allow quit while debugging */
-  setsigc->t_eofc=(UNDEF);              /* or eof signalling */
-  if (ioctl(0,TIOCSETC,setsigc))        /* put it back, modified */
+  sbuf2.t_intrc = (UNDEF);	/* no interrupt or quitting */
+  /* sbuf2.t_quitc=(UNDEF); 		   Allow quit while debugging */
+  sbuf2.t_eofc = (UNDEF);	/* or eof signalling */
+  if (ioctl(0, TIOCSETC, &sbuf2))	/* put it back, modified */
     perror("ioctl2 scb");
-# ifdef UCB
-  moresigc.t_suspc=(UNDEF);             /* no stopping */
-  moresigc.t_dsuspc=(UNDEF);            /* or delayed stopping */
-  moresigc.t_rprntc=(UNDEF);            /* or reprinting */
-  moresigc.t_flushc=(UNDEF);            /* or flushing */
-  moresigc.t_werasc=(UNDEF);            /* or word erasing */
-  moresigc.t_lnextc=(UNDEF);            /* or literal quoting */
-  if (ioctl(0,TIOCSLTC,&moresigc))      /* set ltchars struct to be all undef */    perror("ioctl3");
-# endif
+#ifdef UCB
+  moresigc2.t_suspc = (UNDEF);	/* no stopping */
+  moresigc2.t_dsuspc = (UNDEF);	/* or delayed stopping */
+  moresigc2.t_rprntc = (UNDEF);	/* or reprinting */
+  moresigc2.t_flushc = (UNDEF);	/* or flushing */
+  moresigc2.t_werasc = (UNDEF);	/* or word erasing */
+  moresigc2.t_lnextc = (UNDEF);	/* or literal quoting */
+  if (ioctl(0, TIOCSLTC, &moresigc2))	/* put it back, modified */
+    perror("ioctl3");
 #endif
 }
 
 
 /* Setcooked: Set terminal to cooked mode */
-void setcooked()
+void
+setcooked()
 {
-#ifdef ATT
-
-  struct termio tbuf;
-
-  if (ioctl(0,TCGETA,&tbuf)) perror("ioctl in setcooked");
-  tbuf.c_lflag = tbuf.c_lflag | ICANON | ECHO;
-  tbuf.c_cc[4]=04;              	/* set EOT to ^D */
-  if (ioctl(0,TCSETA,&tbuf)) perror("ioctl sd");
-
-#else
-  struct sgttyb t, *termod= &t;
-  struct tchars s, *setsigc= &s;
-# ifdef UCB
-  struct ltchars moresigc;
-# endif
-
-  if (ioctl(0,TIOCGETP,termod))         /* get the sgttyb struct */
-    perror("ioctl in setdown");
-  termod->sg_flags &= (~CBREAK);        /* reset cooked mode */
-  termod->sg_flags |= ECHO;             /* echo chars to screen */
-  if (ioctl(0,TIOCSETP,termod))         /* put it back, modified */
+  if (ioctl(0, TIOCSETP, &tbuf))
     perror("ioctl1 sd");
-  if (ioctl(0,TIOCGETC,setsigc))        /* get the tchars struct */
-    perror("ioctl2 in setdown");
-  setsigc->t_intrc=3;                   /* set interrupt and quitting */
-  setsigc->t_quitc=28;
-  setsigc->t_eofc=4;                    /* and eof signalling */
-  if (ioctl(0,TIOCSETC,setsigc))        /* put it back, modified */
+  if (ioctl(0, TIOCSETC, &sbuf))
     perror("ioctl2 sd");
-
-# ifdef UCB
-  moresigc.t_suspc=26;                  /* stopping */
-  moresigc.t_dsuspc=25;                 /* delayed stopping */
-  moresigc.t_rprntc=18;                 /* reprinting */
-  moresigc.t_flushc=15;                 /* flushing */
-  moresigc.t_werasc=23;                 /* word erasing */
-  moresigc.t_lnextc=22;                 /* literal quoting */
-  if (ioctl(0,TIOCSLTC,&moresigc))      /* set ltchars struct to be default */
+#ifdef UCB
+  if (ioctl(0, TIOCSLTC, &moresigc))	/* set ltchars struct to be default */
     perror("ioctl3 in setcooked");
-# endif
 #endif
 }
 
+#endif				/* UCB or MINIX1_5 */
+
+
 /* gettstring: Given the name of a termcap string, gets the string
- * and places it into loc.  * Returns 1 if ok, 0 if no string.
+ * and places it into loc. Returns 1 if ok, 0 if no string.
  * If no string, loc[0] is set to EOS.
  */
-bool gettstring(name,loc)
- char *name, *loc;
- {
-  extern char termcapbuf[];
-  char bp[50], *area=bp;
- 
-  if (tgetstr(name,&area)!=NULL)
-   {
-    area=bp;
-    strncpy(loc,area,20); return(TRUE);
-   }
-  else loc[0]=EOS; return(FALSE);
- }
+static bool
+gettstring(name, loc)
+  char *name, **loc;
+{
+  char bp[50], *area = bp;
+
+  if (tgetstr(name, &area) != NULL)
+  {
+    area = bp;
+    while (isdigit(*area))
+      area++;			/* Skip time delay chars */
+    *loc = (char *) malloc((unsigned) strlen(area) + 2);
+    if (!(*loc))
+      return (FALSE);
+    strcpy(*loc, area);
+    return (TRUE);
+  }
+  else
+    *loc = "";
+  return (FALSE);
+}
 
 
-/* Terminal is called at the beginning of Clam to get the termcap
+/* Terminal is called at the beginning of Wish to get the termcap
  * strings needed by the Command Line Editor. If they are not got,
- * or the wrong ones are found, the CLE will act strangely. Clam
+ * or the wrong ones are found, the CLE will act strangely. Wish
  * should at this stage default to a dumber CLE.
  */
-void terminal()
+void
+terminal()
 {
-  extern char *EVget();
-  extern int wid,beeplength;
-  extern char termcapbuf[],bs[],nd[],cl[],cd[],up[],so[],se[],beep[];
-  char term[20];
- 
+  extern int wid, beeplength;
+  char *t, term[20];
+
 /* set up cursor control sequences from termcap */
- 
-  strncpy(term,EVget("TERM"),10);
-  tgetent(termcapbuf,term);
-  if (tgetflag("bs")==1)
-    { bs[0]='\b'; bs[1]='\0'; }
-  else gettstring("bc",bs);
-  if ((wid=tgetnum("co"))==-1) wid=80;
-  wid--;                /* this is to eliminate unwanted auto newlines */
-  gettstring("cl",cl);
-  gettstring("cd",cd);
-  gettstring("nd",nd);
-  gettstring("up",up);
-  gettstring("so",so);
-  gettstring("se",se);
-  gettstring("bl",beep);
-  if (*beep==EOS) strcpy(beep,"\007");
-  beeplength=strlen(beep);
+
+  t=EVget("TERM");
+  if (!t) fatal("No termcap entry available");
+  strncpy(term, t, 10);
+  termcapbuf = (char *) malloc(2048);
+  if (!termcapbuf)
+    return;
+  tgetent(termcapbuf, term);
+  if (tgetflag("bs") == 1)
+    bs = "\b";
+  else
+    gettstring("bc", &bs);
+  if ((wid = tgetnum("co")) == -1)
+    wid = 80;
+  wid--;			/* this is to eliminate unwanted auto newlines */
+  gettstring("cl", &cl);
+  gettstring("cd", &cd);
+  gettstring("nd", &nd);
+  gettstring("up", &up);
+  gettstring("so", &so);
+  gettstring("se", &se);
+  gettstring("bl", &beep);
+  if (*beep == EOS)
+    
+    beep = "\007";
+  beeplength = strlen(beep);
 #ifdef DEBUG
-  printctrl("bs",bs);
-  printctrl("cl",cl);
-  printctrl("cd",cd);
-  printctrl("nd",nd);
-  printctrl("up",up);
-  printctrl("so",so);
-  printctrl("se",se);
-  printctrl("beep",beep);
+  printctrl("bs", bs);
+  printctrl("cl", cl);
+  printctrl("cd", cd);
+  printctrl("nd", nd);
+  printctrl("up", up);
+  printctrl("so", so);
+  printctrl("se", se);
+  printctrl("beep", beep);
 #endif
+  free(termcapbuf);
 }

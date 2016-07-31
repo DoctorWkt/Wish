@@ -1,35 +1,44 @@
+/* The main loop of the shell
+ *
+ * main.c: 40.7  8/4/93
+ */
+
 #include "header.h"
 
-int Argc;		/* The number of arguments for Clam, or an alias */
-char **Argv;		/* The argument list for Clam, or an alias */
-char *prompt;		/* A pointer to the prompt string */
-int lenprompt;		/* and the length of the prompt */
-bool getuline();
-bool (*getline)()=getuline;	/* Our input routine defaults to getuline() */
+int Argc;			/* The number of arguments for Wish */
+char **Argv;			/* The argument list for Wish */
+static char *prompt;		/* A pointer to the prompt string */
+int lenprompt;			/* and the length of the prompt */
+int saveh;			/* Should we save history? */
+static bool Loginshell=FALSE;	/* Indicates if we're a login shell */
+static struct candidate *next_word;
+
+bool(*getaline) () = getuline;	/* Our input routine defaults to getuline() */
 
 
 /* Lengthint is used by prprompt to determine the number
  * of chars in the string version of an integer; this is
  * needed so the prompt length is calculated properly.
  */
-int lengthint(num)
+static int lengthint(num)
   int num;
 {
   int i;
 
-  for (i=0;num;num=num/10,i++);
-  return(i);
+  for (i = 0; num; num = num / 10, i++);
+  return (i);
 }
 
 /* Print out the current time in a set length string */
-void printime()
+static void
+printime()
 {
-  long clock, time();
-  struct tm *t, *localtime();
+  long clock;
+  struct tm *t;
 
   time(&clock);
-  t=localtime(&clock);
-  prints("%2d:%02d:%02d",t->tm_hour,t->tm_min,t->tm_sec);
+  t = localtime(&clock);
+  prints("%2d:%02d:%02d", t->tm_hour, t->tm_min, t->tm_sec);
 }
 
 /* Prprompt prints out the prompt. It parses all the special options
@@ -37,59 +46,72 @@ void printime()
  * the prompt as it appears on the screen. If there is no $prompt,
  * it defaults to '% '.
  */
-void prprompt()
+void
+prprompt()
 {
   extern int curr_hist;
-  extern char *EVget(),so[],se[];
+  extern char *so, *se;
   char c;
-  int i,len;
+  int i, len;
 
-  lenprompt=0;
-  prompt= EVget("prompt");
-  if (prompt==NULL) prompt= "% ";
-  for (i=0;prompt[i];i++)
-    if (prompt[i]=='%')
-      switch(prompt[++i])
+  lenprompt = 0;
+  prompt = EVget("prompt");
+  if (prompt == NULL)
+    prompt = "% ";
+  for (i = 0; prompt[i]; i++)
+    if (prompt[i] == '%')
+      switch (prompt[++i])
       {
 	case EOS:
-	case '%': write(1,"%",1);
-		  lenprompt++;
-		  break;
+	case '%':
+	  write(1, "%", 1);
+	  lenprompt++;
+	  break;
 	case '!':
-	case 'h': lenprompt+=lengthint(curr_hist);
-		  prints("%d",curr_hist);
-		  break;
-	case 'd': len=strlen(EVget("cwd"));
-		  lenprompt+=len;
-		  write(1,EVget("cwd"),len);
-		  break;
-	case 'S': prints("%s",so);
-		  break;
-	case 's': prints("%s",se);	/* temp stop standout */
-		  break;
+	case 'h':
+	  lenprompt += lengthint(curr_hist);
+	  prints("%d", curr_hist);
+	  break;
+	case 'd':
+	  len = strlen(EVget("cwd"));
+	  lenprompt += len;
+	  write(1, EVget("cwd"), len);
+	  break;
+	case 'S':
+	  prints("%s", so);
+	  break;
+	case 's':
+	  prints("%s", se);	/* temp stop standout */
+	  break;
 	case '@':
-	case 't': lenprompt+=8;
-		  printime();
-		  break;
-	default : write(1,"%",1);
-		  lenprompt+=2;
-		  if (prompt[i]<32 || prompt[i]==127)
-		  {
-		    write(1,"^",1);
-		    c=prompt[i]+64;
-		    write(1,&c,1);
-		    lenprompt++;
-		  } else write(1,&prompt[i],1);
+	case 't':
+	  lenprompt += 8;
+	  printime();
+	  break;
+	default:
+	  write(1, "%", 1);
+	  lenprompt += 2;
+	  if (prompt[i] < 32 || prompt[i] == 127)
+	  {
+	    write(1, "^", 1);
+	    c = prompt[i] + 64;
+	    write(1, &c, 1);
+	    lenprompt++;
+	  }
+	  else
+	    write(1, &prompt[i], 1);
       }
     else
     {
-      if (prompt[i]<32 || prompt[i]==127)
+      if (prompt[i] < 32 || prompt[i] == 127)
       {
-	write(1,"^",1);
-	c=prompt[i]+64;
-	write(1,&c,1);
+	write(1, "^", 1);
+	c = prompt[i] + 64;
+	write(1, &c, 1);
 	lenprompt++;
-      } else write(1,&prompt[i],1);
+      }
+      else
+	write(1, &prompt[i], 1);
       lenprompt++;
     }
 }
@@ -97,125 +119,192 @@ void prprompt()
 /* Set the terminal back to normal
  * before leaving the shell
  */
-void leave_shell()
- {
-  setcooked(); write(1,"\n",1);
-  exit(0);
- }
+void
+leave_shell(how)
+  int how;
+{
+  char *argv[2];
 
-static char *defbind[15][3]= {
-	NULL, "\033\020",	"\201",
-	NULL, "\033B",		"\202",
-	NULL, "\033b",		"\202",
-	NULL, "\033D",		"\203",
-	NULL, "\033d",		"\203",
-	NULL, "\033F",		"\204",
-	NULL, "\033f",		"\204",
-	NULL, "\033H",		"\205",
-	NULL, "\033h",		"\205",
-	NULL, "\033P",		"\206",
-	NULL, "\033p",		"\206",
-	NULL, "\033Y",		"\207",
-	NULL, "\033y",		"\207",
-	NULL, "\033/",		"\210",
-	NULL, "\033?",		"\211"
-	};
+  setcooked();
+  if (Loginshell)		/* If we're a login shell */
+  {
+    argv[0] = "source";
+    argv[1] = ".klogout";	/* Source .klogout */
+    source(2, argv);
+  }
+  write(1, "\n", 1);
+  exit(how);
+}
 
 /* Setup does most of the initialisation of the shell. Firstly the default
  * variables & the environ variables are set up. Then the termcap strings
  * are found, and then any other misc. things are done.
  */
-void setup()
- {
-  extern char currdir[],CLEmode;
-  int source(),i;
+static void
+setup()
+{
+  extern char currdir[];
+  extern struct vallist vlist;
   char *argv[2];
+  char *home;
 
-				/* Initialise the environment */
-  if (!EVinit()) fatal("Can't initialise environment");
-#ifdef UCB
-  if (getwd(currdir))			/* Get the current directory */
+  /* Initialise the environment */
+  if (!EVinit())
+    fatal("Can't initialise environment");
+#ifdef USES_GETWD
+  if (getwd(currdir))		/* Get the current directory */
 #else
-  if (getcwd(currdir,MAXPL))
+  if (getcwd(currdir, MAXPL))
 #endif
-    EVset("cwd",currdir);
+    setval("cwd", currdir, &vlist);
   else
-    write(2,"Can't get cwd properly\n",23);
-  EVset("prompt","% ");			/* Set the prompt to % for now */
-  catchsig();				/* Catch signals */
-#ifdef JOB
-  settou();				/* We want TTOU for children */
-#endif
-  terminal();				/* Get the termcap strings */
+    write(2, "Can't get cwd properly\n", 23);
+  setval("prompt", "% ", &vlist);	/* Set the prompt to % for now */
+  setval("Version", "2.0.39", &vlist);
+  catchsig();			/* Catch signals */
+  getstty();			/* Set up the stty for Wish */
+  terminal();			/* Get the termcap strings */
 
-  for (i=0; i<15; i++) Bind(3,defbind[i]);	/* Set default bindings */
-  CLEmode=0;					/* and start in mode 1 */
+  initbind();			/* Set the default key bindings */
 
-  argv[0]="source"; argv[1]=".klamrc";	/* Source .klamrc */
-  source(2,argv);
- }
+  argv[0] = "source";
+  home= EVget("HOME");
+  if (home)
+   { argv[1]= Malloc(strlen(home) + strlen(".wishrc")+3, "setup malloc");
+     sprints(argv[1],"%s/.wishrc", home);
+   }
+  else argv[1] = ".wishrc";		/* Source .klamrc */
+  source(2, argv);
+  free(argv[1]);
+  if (*Argv[0]=='-')		/* If we're a login shell */
+  {
+    Loginshell= TRUE;		/* Make sure we know */
+    if (home)
+     { argv[1]= Malloc(strlen(home) + strlen(".wishrc")+3, "setup malloc");
+       sprints(argv[1],"%s/.wishrc");
+     }
+    else argv[1] = ".wishlogin";	/* Source .klogin */
+    source(2, argv);
+    free(argv[1]);
+  }
+  saveh = TRUE;
+}
 
 
 /* Doline is the loop which gets a line from the user, runs it through
  * the metachar expansion, and finally calls command() to execute it.
+ * It returns when there are no more lines available - so it really
+ * should be called dolines()!
+ *
+ * If isalias is FALSE, we are not expanding aliases. Otherwise we are,
+ * so don't clear the carray, our args are in there. Also, how will
+ * then hold H_BCKGND if we are a subshell.
  */
 
-bool doline()
- {
-  extern struct candidate carray[];
-  extern int curr_hist, maxhist, ncand;
-  char *EVget(), *expline(), *linebuf;
-  int i,pid,q;
-  int term,command();
-  bool getuline(),meta_1();
+void
+doline(isalias)
+  int isalias;
+{
+  extern struct candidate carray[], *wordlist;	/* Wordlist is list or words */
+  extern int Exitstatus, ncand;
+  int i;
+
+/* Nextword holds the word for the next pipeline,
+ * termword holds the token that terminated the pipeline.
+ */
+  struct candidate *termword;
+  char *linebuf;
+  int pid, q, oldncand;
+  int term;
 
 #ifdef DEBUG
-i= (int)sbrk(0);
-prints("Brk value is %x\n",i);
-prints("Getline f'n ptr is %x\n",getline);
+  i = (int) sbrk(0);
+  prints("In doline, Brk value is %x\n", i);
+  prints("Getaline f'n ptr is %x\n", getaline);
 #endif
-    linebuf=(char *)malloc(1024);
-    if (linebuf==NULL) return(FALSE);
-    for (i=0; i<1024; i++) linebuf[i]=0;	/* Clear the linebuf */
-    if ((*getline)(linebuf,&q)==TRUE)		/* Get a line from user */
-     {
-      if (q) return(TRUE);
-      setcooked();				/* Set us to cooked mode */
-      if (meta_1(linebuf,TRUE)==FALSE)
-	return(FALSE);				/* Expand ! */
-      savehist(expline(carray));		/* Save the line */
-      meta_2();					/* Expand $ and ~ */
-      meta_3();					/* Expand * ? and [] */
-      term=command(&pid,FALSE,NULL);		/* Actually run it here */
+  linebuf = (char *) malloc(MAXLL);
+  if (linebuf == NULL)
+    fatal("Couldn't malloc linebuf\n");
 
-       for (i=0;i<ncand; i++)			/* Free the command words */
-	if (carray[i].mode==TRUE)
-	 { carray[i].mode=FALSE;
-	   free(carray[i].name);
-	 }
+  while ((*getaline) (linebuf, &q) == TRUE)	/* Get a line from user */
+  {
+    if (q || *linebuf == EOS)
+      continue;
 
-      if (term!=C_AMP)				/* If we should wait on it */
-	waitfor(pid);				/* Wait for it to finish */
-#ifdef JOB
-      joblist(0);				/* print the list of jobs */
+#ifdef DEBUG
+    fprints(2, "In doline, line is %s\n", linebuf);
 #endif
- 		   				/* Close any leftover fds */
-    /* for (i=4; i<20; i++) (void)close(i); */
-    return(TRUE);
-   }
-  return(FALSE);
- }
+    if (isalias == FALSE)
+      ncand = 0;		/* Initialise the carray */
+    next_word = &carray[ncand];	/* list for meta.c */
+    oldncand = ncand;
+
+    if (meta_1(linebuf, FALSE) == FALSE)
+      continue;			/* Expand ! */
+    if (saveh)
+      savehist(expline(carray), 1);	/* Save the line */
+
+/* At this point, we need to extract pipelines
+ * from the parsed line, so that we expand
+ * metachars properly. This means we need yet
+ * another loop. Oh well.
+ */
+    for (wordlist = next_word; wordlist != NULL; wordlist = next_word)
+    {
+      /* Find pipeline end */
+      while (next_word && (i = next_word->mode & C_WORDMASK) != C_SEMI && i != C_DBLAMP
+	     && i != C_DBLPIPE)
+	next_word = next_word->next;
+      /* If we found one */
+      if (next_word)
+      {
+	termword = next_word;	/* Save it */
+	next_word = next_word->next;	/* Nextword is next pipeline */
+	termword->next = NULL;	/* Terminate our pipeline */
+      }
+      meta_2();			/* Expand metacharacters */
+      term = command(&pid, FALSE, NULL, FALSE);	/* Actually run it here */
+
+      if (isalias & H_BCKGND) pid= -pid;	/* Wait ALWAYS if subshell */
+      if (term != C_AMP && pid)
+	waitfor(pid);		/* Wait for it to finish */
+      if (term == C_DBLAMP && Exitstatus != 0)
+	break;
+      if (term == C_DBLPIPE && Exitstatus == 0)
+	break;
+      if (saveh)
+	joblist(0, NULL);	/* print the list of jobs */
+
+    }
+
+    for (i = oldncand; i < ncand; i++)	/* Free the command words */
+      if (carray[i].mode == TRUE)
+      {
+	carray[i].mode = FALSE;
+	free(carray[i].name);
+      }
+    ncand = oldncand;
+
+  }
+  free(linebuf);
+}
 
 /* Main. This is the bit that starts the whole ball rolling.
  */
+int
 main(argc, argv)
- int argc;
- char *argv[];
- {
+  int argc;
+  char *argv[];
 
-  Argc= argc;			/* Set up arg variables */
-  Argv= argv;
+{
+
+  Argc = argc;			/* Set up arg variables */
+  Argv = argv;
+#ifdef MALLOCDEBUG
+  initmall();			/* Initialise the malloc arrays */
+#endif
   setup();			/* Set up the vars & the termcap stuff */
 
-  while(1) doline();		/* We only exit when we shutdown() */
- }
+  while (1)
+    doline(FALSE);		/* We only exit when we shutdown() */
+}

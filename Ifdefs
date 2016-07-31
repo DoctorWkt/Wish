@@ -1,0 +1,97 @@
+System Defines
+--------------
+
+	For each and every system, one and one only system define is needed.
+The current list of available system defines is below.
+
+#define AUX2_01		/* A/UX 2.01 */
+#define OSX5_1_BSD	/* Pyramid OSx 5.1a, BSD Universe */
+#define COHERENT	/* Coherent */
+#define GENBSD		/* Generic 4.x BSD machine */
+#define GENSYSV		/* Generic SysV machine */
+#define J386BSD0_1	/* 386BSD-0.1 */
+#define MINIX1_5	/* Minix 1.5 */
+#define SUNOS3		/* Sun OS 3.x */
+#define SUNOS4		/* Sun OS 4.x */
+#define OSX5_1_ATT	/* Pyramid under OSx 5.1a, SysV Universe */
+#define ULTRIX4_2	/* Ultrix 4.2 */
+
+
+Operating System Defines
+------------------------
+
+	A lot of code is #ifdef'd according to the type of operating system
+where the code is compiled. Five operating system types are defined below.
+Only one of these should be defined. Also given is the list of system
+defines that define the operating system type.
+
+#define ATT		/* System V release < 4 */
+		GENSYSV
+		OSX5_1_ATT
+
+#define POSIX		/* An OS with POSIX system calls */
+		AUX2_01
+		J386BSD0_1
+		SUNOS4
+
+#define UCB		/* 4.x BSD */
+		OSX5_1_BSD
+		GENBSD
+		SUNOS3
+		ULTRIX4_2
+
+#define COHERENT	/* Coherent */
+		COHERENT
+
+#define MINIX1_5	/* Minix 1.5 */
+		MINIX1_5
+
+
+Job Control
+-----------
+
+	There are four styles of job control available: 7th Edition Unix
+job control (using ptrace), Berkeley job control, POSIX job control and
+no job control whatsoever. These are enabled by the following defines, only
+one of which should be defined.
+
+#define POSIXJOB	/* POSIX job control */
+#define V7JOB		/* 7th Edition Unix job control */
+#define UCBJOB		/* Berkeley job control */
+
+
+Argument Passing
+----------------
+
+	The prints() [and friends] functions take a variable number of
+arguments. Where possible, argument passing macros should be used. There
+are three main types: no argument passing macros, varargs.h style argument
+passing and stdarg.h stype argument passing macros. These are enabled by the
+following defines, only one of which should be defined.
+
+#define VARARGS		/* varargs.h style argument passing */
+#define STDARG		/* stdarg.h stype argument passing */
+
+
+Miscellaneous
+-------------
+
+	There are a few other miscellaneous defines which control things
+like types of functions used for directory searches, current working directory
+information.
+
+#define USES_GETWD	/* Uses getwd(), not getcwd() */
+
+#define PLONG int	/* The type of arguments to ptrace(). Minix 1.5 */
+			/* uses longs! This is only used when V7JOB is on */
+
+#define SIGTYPE void	/* Signal handlers return this type. Usually void or */
+			/* int, but might also be __sighandler_t */
+
+#define USES_DIRECT	/* Uses struct direct, not struct dirent */
+
+#define PROTO		/* The compiler supports Ansi-C prototyped function */
+			/* declarations */
+
+#define DEBUG		/* Debugging code in Wish is #ifdef'd with this. You */
+			/* should not need (or want) to turn this on. */

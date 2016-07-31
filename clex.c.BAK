@@ -1,7 +1,7 @@
 /* Here is the declaration of the candidate array. This is used in meta.c
  * and probably in parse.c, as well as several million other places.
  *
- * clex.c: 40.5  8/11/93
+ * %M%: %I%  %G%
  */
 
 #include "header.h"
@@ -14,14 +14,13 @@ static int maxlen;
 /* Compare is the routine used by qsort to reorder the elements
  * in the carray.
  */
-int
+int 
 compare(a, b)
   CONST void *a, *b;
 {
   struct candidate *c, *d;
 
-  c = (struct candidate *) a;
-  d = (struct candidate *) b;
+  c= (struct candidate *)a; d= (struct candidate *)b;
   return (strcmp(c->name, d->name));
 }
 
@@ -29,7 +28,7 @@ compare(a, b)
 /* Print out the maxlen partial match on the word, placing the result at
  * pos in the given line.
  */
-static void
+static void 
 extend(line, pos, word)
   char *line;
   int *pos;
@@ -40,9 +39,11 @@ extend(line, pos, word)
   int i, j, nostop = 1;
   char *newword, *t;
 
-  if (*word == '~' || *word == '$') word++;
-  t = strrchr(word, '/');			/* Go to the last '/' */
-  if (t != NULL) word = ++t;
+  if (*word == '~' || *word == '$')
+    word++;
+  t = strrchr(word, '/');	/* Go to the last '/' */
+  if (t != NULL)
+    word = ++t;
 
   switch (ncand)
   {
@@ -56,38 +57,47 @@ extend(line, pos, word)
 	return;
       for (i = 0; i < maxlen + 1; i++)
 	newword[i] = EOS;
-      strcpy(newword, word);			/* Set up as much as we have */
+      strcpy(newword, word);	/* Set up as much as we have */
 
       for (i = strlen(word); nostop && i < maxlen; i++)
 	for (j = 0; j < ncand; j++)
-	{ if (strlen(carray[j].name) <= i)
-	  { nostop = 0; break; }
+	{
+	  if (strlen(carray[j].name) <= i)
+	  {
+	    nostop = 0;
+	    break;
+	  }
 	  if (newword[i] == 0)
 	    newword[i] = carray[j].name[i];
 	  if (newword[i] != carray[j].name[i])
-	  { newword[i] = EOS;
+	  {
+	    newword[i] = EOS;
 	    nostop = 0;
 	    break;
 	  }
 	}
   }
   for (i = strlen(word); i < strlen(newword); i++)
-    insert((uchar *) line, (*pos)++, (uchar) newword[i]);
+    insert((uchar *)line, (*pos)++, (uchar) newword[i]);
 
   if (ncand == 1)
-  { if ((carray[0].mode & S_IFMT) == S_IFDIR)
-      insert((uchar *) line, (*pos)++, '/');
+  {
+    if ((carray[0].mode & S_IFMT) == S_IFDIR)
+      insert((uchar *)line, (*pos)++, '/');
     else
-      insert((uchar *) line, (*pos)++, ' ');
+      insert((uchar *)line, (*pos)++, ' ');
   }
   else
-  { Beep; free(newword); }
+  {
+    Beep;
+    free(newword);
+  }
 }
 
 
 /* Print out the candidates found in columns.
  */
-static void
+static void 
 colprint()
 {
   extern int wid;
@@ -97,13 +107,17 @@ colprint()
   maxlen += 2;
   numperline = wid / maxlen;
   collength = ncand / numperline;
-  if (ncand % numperline) collength++;
+  if (ncand % numperline)
+    collength++;
   sprints(format, "%%%ds", maxlen);
   for (i = 0; i < collength; i++)
-  { write(1, "\n", 1);
+  {
+    write(1, "\n", 1);
     for (j = 0; j < numperline; j++)
-    { index = i + j * collength;
-      if (index >= ncand) break;
+    {
+      index = i + j * collength;
+      if (index >= ncand)
+	break;
       if ((carray[index].mode & S_IFMT) == S_IFDIR)
 	strcat(carray[index].name, "/");
 #ifdef S_IFLNK
@@ -123,7 +137,7 @@ colprint()
  * prev->next points to the new node. If malc is TRUE, space is malloc'd
  * and the word copied.
  */
-void
+void 
 addcarray(word, prev, mode, malc)
   char *word;
   struct candidate *prev;
@@ -133,15 +147,19 @@ addcarray(word, prev, mode, malc)
   int j;
   struct candidate *here;
 
-  if (ncand == MAXCAN) return;
+  if (ncand == MAXCAN)
+    return;
   here = &carray[ncand];
   if (malc && word)
-  { j = strlen(word);
-    here->name = (char *) Malloc((unsigned) (j + 2), "addcarray");
+  {
+    j = strlen(word);
+    here->name = (char *) Malloc((unsigned) (j + 2),"addcarray");
     strcpy(here->name, word);
   }
-  else here->name = word;
-  if (prev >= carray) prev->next = here;
+  else
+    here->name = word;
+  if (prev >= carray)
+    prev->next = here;
   here->next = NULL;
   here->mode = mode;
   ncand++;
@@ -153,7 +171,7 @@ addcarray(word, prev, mode, malc)
  * word may be an absolute path name, or a relative one. Any matches
  * against the word are added to the carray.
  */
-static void
+static void 
 findfile(word)
   char *word;
 {
@@ -162,56 +180,73 @@ findfile(word)
   char partdir[MAXWL];
   char *match;
   DIR *dirp;
-  struct stat statbuf;
+
 #ifdef USES_DIRECT
   struct direct *entry;
 #else
   struct dirent *entry;
 #endif
+  struct stat statbuf;
 
   for (i = 0; i < MAXWL; i++)
     partdir[i] = EOS;
 
   if (word != NULL && *word != EOS)
   {
-						/* Make full pathname */
+    /* Make full pathname */
     if (*word != '/')
-    { strcpy(partdir, currdir);
+    {
+      strcpy(partdir, currdir);
       strcat(partdir, "/");
     }
     strcat(partdir, word);
 
-						/* Find the directory name */
+    /* Find the directory name */
     if ((match = strrchr(partdir, '/')) == NULL)
-    { prints("Looney! No / in word %s\n", partdir); return; }
+    {
+      prints("Looney! No / in word %s\n", partdir);
+      return;
+    }
 
     *match = EOS;
-    match++;				/* Match holds the partial file name */
+    match++;			/* Match holds the partial file name */
 
-    i = strlen(match);			/* Get the length of the name */
+    i = strlen(match);		/* Get the length of the name */
   }
   else
-  { strcpy(partdir, currdir); i = 0; }
+  {
+    strcpy(partdir, currdir);
+    i = 0;
+  }
 
-  if (*partdir == EOS)			/* Can occur when only / is 1st char */
-  { if ((dirp = opendir("/")) == NULL)
-    { prints("Could not open the directory /\n"); return; }
+  if (*partdir == EOS)		/* Can occur when only / is 1st char */
+  {
+    if ((dirp = opendir("/")) == NULL)
+    {
+      prints("Could not open the directory /\n");
+      return;
+    }
   }
   else if ((dirp = opendir(partdir)) == NULL)
-  { prints("Could not open the directory %s\n", partdir); return; }
+  {
+    prints("Could not open the directory %s\n", partdir);
+    return;
+  }
 
   if (chdir(partdir) == 0)
     while ((entry = readdir(dirp)) != NULL && ncand < MAXCAN)
     {
-						/* Ignore dot and dot-dot */
+      /* Ignore dot and dot-dot */
       if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
 	continue;
 
-				/* If we find a partial match add to list */
+      /* If we find a partial match add to list */
       if (i == 0 || !strncmp(entry->d_name, match, i))
-      { j = strlen(entry->d_name);
-	if (j > maxlen) maxlen = j;
-						/* and get the mode as well */
+      {
+	j = strlen(entry->d_name);
+	if (j > maxlen)
+	  maxlen = j;
+	/* and get the mode as well */
 	statbuf.st_mode = 0;
 	stat(entry->d_name, &statbuf);
 	addcarray(entry->d_name, NULL, statbuf.st_mode, TRUE);
@@ -226,7 +261,7 @@ findfile(word)
  * variable's value and treat it as a path.
  * Any matches against the word are added to the carray.
  */
-static void
+static void 
 finddollar(word)
   char *word;
 {
@@ -236,27 +271,34 @@ finddollar(word)
   int i, j, mode;
   char *a;
 
-  word++;					/* Skip over dollar sign */
+  word++;			/* Skip over dollar sign */
   i = strlen(word);
-  if ((a = strchr(word, '/')) != NULL)		/* We have to find a file */
-  { *(a++) = EOS;				/* Get the var name */
-    for (v = vlist.head; v; v = v->next)
-      if (!strncmp(v->name, word, i))
-      { sprints(dir, "%s/%s", v->val, a);	/* Form the full path name */
-	findfile(dir);				/* and match against it */
+  if ((a = strchr(word, '/')) != NULL)	/* We have to find a file */
+  {
+    *(a++) = EOS;		/* Get the var name */
+    for (v=vlist.head; v; v=v->next)
+     if (!strncmp(v->name,word,i))
+      {
+        sprints(dir, "%s/%s", v->val, a); /* Form the full path name */
+        findfile(dir);		/* and match against it */
       }
-    *(--a) = '/';				/* Extend needs to see the / */
+    *(--a) = '/';		/* Extend needs to see the / */
     return;
   }
 
-						/* Look through the var names */
-  for (v = vlist.head; v; v = v->next)
-    if (!strncmp(v->name, word, i))
-    { j = strlen(v->name);
-      if (*(v->val) == '/') mode = S_IFDIR;	/* Guess if it's a dir */
-      else mode = 0;
+
+				/* Look through the var names */
+  for (v=vlist.head; v; v=v->next)
+   if (!strncmp(v->name,word,i))
+    {
+      j = strlen(v->name);
+      if (*(v->val) == '/')
+	mode = S_IFDIR;		/* Guess if it's a dir */
+      else
+	mode = 0;
       addcarray(v->name, NULL, mode, TRUE);
-      if (j > maxlen) maxlen = j;
+      if (j > maxlen)
+	maxlen = j;
     }
 }
 
@@ -264,7 +306,7 @@ finddollar(word)
  * Any matches against the word are added to the carray.
  */
 
-static void
+static void 
 findbuilt(word)
   char *word;
 {
@@ -275,18 +317,22 @@ findbuilt(word)
 
   i = strlen(word);
 
-  for (v = alist.head; v; v = v->next)
-    if (!strncmp(v->name, word, i))
-    { j = strlen(v->name);
+  for (v=alist.head; v; v=v->next)
+   if (!strncmp(v->name,word,i))
+    {
+      j = strlen(v->name);
       addcarray(v->name, NULL, 0700, TRUE);
-      if (j > maxlen) maxlen = j;
+      if (j > maxlen)
+	maxlen = j;
     }
 
-  for (h = 0; buillist[h].name; h++)			/* Then the builtins */
+  for (h = 0; buillist[h].name; h++)	/* Then the builtins */
     if (i == 0 || !strncmp(buillist[h].name, word, i))
-    { j = strlen(buillist[h].name);
+    {
+      j = strlen(buillist[h].name);
       addcarray(buillist[h].name, NULL, 0700, TRUE);
-      if (j > maxlen) maxlen = j;
+      if (j > maxlen)
+	maxlen = j;
     }
 }
 
@@ -296,7 +342,7 @@ findbuilt(word)
  *
  * This now uses the tilde list.
  */
-static void
+static void 
 findpasswd(word)
   char *word;
 {
@@ -307,34 +353,41 @@ findpasswd(word)
 
   struct passwd *entry;
 
-  if (!strncmp(word, "~#/", 3))			/* If looking for builtins, */
-  { findbuilt(&word[3]);
+  if (!strncmp(word, "~#/", 3))	/* If looking for builtins, */
+  {
+    findbuilt(&word[3]);
     return;
-  }						/* use findbuilt() */
+  }				/* use findbuilt() */
 
   if (strchr(word, '/') != NULL)/* We have to find a file */
-  { tilde(word, dir);
-    if (*dir != 0) findfile(dir);
+  {
+    tilde(word, dir);
+    if (*dir != 0)
+      findfile(dir);
     return;
   }
 
-  word++;					/* Skip over tilde */
+  word++;			/* Skip over tilde */
   i = strlen(word);
 
-						/* Try our tilde list first */
-  for (t = tlist.head; t; t = t->next)
-    if (!strncmp(t->name, word, i))
-    { j = strlen(t->name);
+				/* Try our tilde list first */
+  for (t=tlist.head; t; t=t->next)
+   if (!strncmp(t->name,word,i))
+    {
+      j = strlen(t->name);
       addcarray(t->name, NULL, S_IFDIR, TRUE);
-      if (j > maxlen) maxlen = j;
+      if (j > maxlen)
+	maxlen = j;
     }
 
   while ((entry = getpwent()) != NULL && ncand < MAXCAN)
   {
     if (i == 0 || !strncmp(entry->pw_name, word, i))
-    { j = strlen(entry->pw_name);
+    {
+      j = strlen(entry->pw_name);
       addcarray(entry->pw_name, NULL, S_IFDIR, TRUE);
-      if (j > maxlen) maxlen = j;
+      if (j > maxlen)
+	maxlen = j;
     }
   }
   endpwent();
@@ -343,7 +396,7 @@ findpasswd(word)
 /* Find the name of a file by looking through $PATH.
  * Any matches against the word are added to the carray.
  */
-static void
+static void 
 findbin(word)
   char *word;
 {
@@ -351,28 +404,38 @@ findbin(word)
   char word2[MAXWL];
   char *Path, *thispath, *temp;
 
-  temp = EVget("PATH");				/* Get the PATH value */
-  if (temp == NULL) return;
+  temp = EVget("PATH");		/* Get the PATH value */
+  if (temp == NULL)
+    return;
   Path = thispath = (char *) malloc((unsigned) strlen(temp) + 4);
-  if (thispath == NULL) return;
+  if (thispath == NULL)
+    return;
   strcpy(thispath, temp);
   while (thispath != NULL)
-  { for (i = 0; i < MAXWL; i++) word2[i] = EOS;
+  {
+    for (i = 0; i < MAXWL; i++)
+      word2[i] = EOS;
     temp = thispath;
-    while (*temp != EOS && *temp != ' ' && *temp != ':') temp++;
-    if (*temp == EOS) temp = NULL;
-    else *(temp++) = EOS;
+    while (*temp != EOS && *temp != ' ' && *temp != ':')
+      temp++;
+    if (*temp == EOS)
+      temp = NULL;
+    else
+      *(temp++) = EOS;
 
     strcpy(word2, thispath);
     strcat(word2, "/");
-    if (word != NULL || *word != EOS) strcat(word2, word);
+    if (word != NULL || *word != EOS)
+      strcat(word2, word);
 
     findfile(word2);
 
     while (temp != NULL && *temp != EOS && (*temp == ' ' || *temp == ':'))
       temp++;
-    if (temp == NULL || *temp == EOS) thispath = NULL;
-    else thispath = temp;
+    if (temp == NULL || *temp == EOS)
+      thispath = NULL;
+    else
+      thispath = temp;
   }
   free(Path);
 }
@@ -380,12 +443,12 @@ findbin(word)
 
 /* Complete subsumes the work of two routines in old Clam, depending on how:
  *
- * case 0:	Print out a columnated list of files that match the word
+ * case 0: 	Print out a columnated list of files that match the word
  *		at position pos. The line is unchanged.
  * case 1:	Try to complete as much as possible the word at pos, by
  *		using the find routines above. Add the completion to the line.
  */
-void
+void 
 complete(line, pos, how)
   char *line;
   int *pos;
@@ -403,11 +466,13 @@ complete(line, pos, how)
   {
     strcpy(yankbuf, "");
     startpos = *pos - 1;
-  }						/* nothing there to get */
+  }				/* nothing there to get */
   else
-  { b = wordterm;		/* first get the thing we've got so far */
+    /* first get the thing we've got so far */
+  {
+    b = wordterm;
     wordterm = " ";
-    startpos = yankprev((uchar *) line, *pos);
+    startpos = yankprev((uchar *)line, *pos);
     wordterm = b;
   }
 
@@ -418,23 +483,31 @@ complete(line, pos, how)
     findbin(yankword);
   else
     switch (*yankword)
-    { case '~':
-	findpasswd(yankword); break;
+    {
+      case '~':
+	findpasswd(yankword);
+	break;
       case '$':
-	finddollar(yankword); break;
+	finddollar(yankword);
+	break;
       default:
 	findfile(yankword);
     }
 
-  if (how == TRUE) extend(line, pos, yankword);
+  if (how == TRUE)
+    extend(line, pos, yankword);
   else
-  { if (ncand == 0) Beep;
+  {
+    if (ncand == 0)
+      Beep;
     else
-    { qsort((void *) carray, ncand, sizeof(struct candidate), compare);
+    {
+      qsort((void *) carray, ncand, sizeof(struct candidate), compare);
       colprint();
       prprompt();
-      show((uchar *) line, TRUE);
+      show((uchar *)line, TRUE);
     }
   }
-  while ((--ncand) >= 0) free(carray[ncand].name);
+  while ((--ncand) >= 0)
+    free(carray[ncand].name);
 }
