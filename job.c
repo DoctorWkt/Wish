@@ -2,7 +2,10 @@
 
 int Headpid;			/* The process we are waiting on */
 #ifdef JOB
+#include <termio.h>
+
 union wait Headwait;		/* The returned value of the Headpid */
+bool jchange=FALSE;		/* Has a job changed state? */
 
 /* The job structure hold the information needed to manipulate the
  * jobs, using job numbers instead of pids.
@@ -22,17 +25,7 @@ struct job
 struct job *jtop=NULL,*exitop,*currentjob;
 #endif
 
-
-void statusprt(pid,status)	/* Interpret status code */
- int pid;
-#ifdef JOB
- union wait status;
-#else
- int status;
-#endif
- {
-  int code;
-  static char *siglist[]= { "","Hangup","Interrupt","Quit",
+static char *siglist[]= { "","Hangup","Interrupt","Quit",
                         "Illegal Instruction","Trace/BPT Trap","IOT Trap",
                         "EMT Trap","Floating Point Exception","Killed",
                         "Bus Error","Segmentation Violation","Bad System Call",
@@ -46,25 +39,28 @@ void statusprt(pid,status)	/* Interpret status code */
 #endif
 			};
 
+struct job *findjob();
+void rmjob();
+
+void statusprt(pid,status)	/* Interpret status code */
+ int pid;
 #ifdef JOB
-  if (status.w_stopval==WSTOPPED)
-   {
-    prints("Process %d ",pid);
-    if (status.w_stopsig<MAXSIG)
-	prints(siglist[status.w_stopsig]);
-    else prints("signal %d",status.w_stopsig);
-   }
-  else
+ union wait status;
+#else
+ int status;
+#endif
+ {
+  int code;
+
+#ifdef JOB
+  if (status.w_stopval!=WSTOPPED && status.w_termsig)
    {
     if (status.w_termsig>=MAXSIG) return;
-    if (pid!=0) prints("Process %d: ",pid);
     if (status.w_retcode!=0) prints("exited %d ",status.w_retcode);
-    if (status.w_termsig<MAXSIG)
-	prints(siglist[status.w_termsig]);
-    else prints("signal %d",status.w_termsig);
+    prints(siglist[status.w_termsig]);
     if (status.w_coredump) prints(" (core dumped)");
-   }
     prints("\n");
+   }
 #else
   if (status!=0 && pid!=0)
     prints("Process %d: ",pid);
@@ -152,6 +148,7 @@ void checkjobs()
   union wait status;
   int wpid;
   struct rusage rusage;
+  struct job *thisjob;
 				/* Get status of our children */
   signal(SIGCHLD,checkjobs);
 #ifdef DEBUG
@@ -162,12 +159,15 @@ void checkjobs()
 #ifdef DEBUG
     printf("--- Pid %d status %x\n",wpid,status);
 #endif
+    thisjob=findjob(wpid);
+    thisjob->status=status;
+    jchange=TRUE;
+    statusprt(wpid,status);
+    if (status.w_stopval!=WSTOPPED) rmjob(wpid);
     if (wpid==Headpid)            /* Set Headwait if we're pause()d on it */
-        { statusprt(0,status);
-          Headwait=status;
+        { Headwait=status;
           Headpid=0;
  	}
-    else statusprt(wpid,status); /* and print them out for now */
    }
  }
 
@@ -179,6 +179,9 @@ void checkjobs()
 void stopjob()
  {
   signal(SIGTSTP,stopjob);
+#ifdef DEBUG
+  prints("In stopjobs\n");
+#endif
   if (Headpid!=0)
     {
 #ifdef DEBUG
@@ -197,6 +200,7 @@ void joblist()
 {
   struct job *ptr;
 
+  if (jchange==FALSE) return;
   for (ptr=jtop;ptr;ptr=ptr->next)
   {
     if (currentjob->pid==ptr->pid)
@@ -207,6 +211,7 @@ void joblist()
 	prints(" %s   ",siglist[ptr->status.w_stopsig]);
     prints(" %s\n",ptr->name);
   }
+  jchange=FALSE;
 }
 
 
@@ -251,6 +256,7 @@ int addjob(pid,name)
   char *name;
 #endif
 {
+  extern char *cwd;
   int jobno,diff=(-1);
   struct job *ptr,*old,*new;
   char execdir[MAXPL];
@@ -378,7 +384,7 @@ void fg(argc,argv)
     prints("About to setpgrp pid%d to us\n",pid);
 #endif
     if (setpgrp(pid,getpgrp(0))==-1)  /* set process group to the shell's */
-     { perror("fg setpgrp"); }
+     { perror("fg setpgrp"); return; }
 #ifdef DEBUG
     prints("About to SIGCONT %d\n",pid);
 #endif

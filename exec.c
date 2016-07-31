@@ -201,6 +201,9 @@ int invoke(argc,argv,newfd,how)
 	     exit(0);
 			/* Unredirect our I/O */
     default: redirect(&oldfd,NULL,0);
+#ifdef JOB
+	     addjob(pid,argv[0]);
+#endif
 			/* and return the new pid */
 	     return(pid);
    }

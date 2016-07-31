@@ -4,7 +4,8 @@ bool builtin(argc,argv)		/* Do builtin */
  int argc;
  char *argv[];
  {
-  char *path,*EVget();;
+  extern char *cwd;
+  char *path,*EVget();
 
   if (strchr(argv[0],'=')!=NULL)
 		asg(argc,argv);
@@ -17,6 +18,8 @@ bool builtin(argc,argv)		/* Do builtin */
 		bg(argc,argv);
   else if (!strcmp(argv[0],"fg"))
 		fg(argc,argv);
+  else if (!strcmp(argv[0],"jobs"))
+		joblist(argc,argv);
 #endif
   else if (!strcmp(argv[0],"cd"))
 	 {

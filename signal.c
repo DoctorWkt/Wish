@@ -1,7 +1,4 @@
 #include "header.h"
-#ifdef JOB
-# include <termio.h>
-#endif
 
 #define SIGTYPE void	/* One of int or void */
 
