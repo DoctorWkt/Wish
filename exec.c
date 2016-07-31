@@ -1,125 +1,84 @@
 #include "header.h"
 
+/* Dupup dups the file descriptors 0,1,2 up to 10,11,12. It returns -1 if
+ * an error occurs. 
+ */
+
+static char dupdone=FALSE;	/* We only ever dupup once */
+int dupup()
+ {
+  if (dupdone==TRUE) return(0);
+  if (dup2(0,10)==-1 || dup2(1,11)==-1 || dup2(2,12)==-1)
+    { close(10);
+      close(11); close(12);
+fprints(2,"Could not dup 10,11 or 12\n");
+      return(-1); }
+  dupdone=TRUE; return(0);
+ }
+
+
+/* Dupdown dups the file descriptors 10,11,12 up to 0,1,2.
+ */
+void dupdown()
+ {
+  if (dupdone==FALSE) return;
+  close(0); close(1); close(2);
+  dup2(10,0); dup2(11,1); dup2(12,2);
+  close(10); close(11); close(12);
+  dupdone=FALSE;
+ }
+
+
 /*
- * Redirect redirects the file descriptors for input,output & error for the
- * current process, returning the new names of the old descriptors. It also
- * takes a bitmap indicating whether to append to the output file, and if the
- * process is running in the background. If oldfd pointf to NULL, the old
- * file descriptors are not saved. Returns -1 & errno on error.
+ * Redirect redirects the file descriptors for fds 0 to 9 for the
+ * current process; for each fd it also takes a bitmap indicating whether
+ * to append to the output file, or to open from an input file.
+ * Returns -1 & errno on error.
  */
 int 
-redirect(newfd, oldfd, how)
-    struct rdrct *newfd, *oldfd;
-    int how;
+redirect(newfd)
+    struct rdrct newfd[10];
 {
-    int appnd, bckgnd;
+    int i, appnd;
     int mode, flags;
 
-#define Ifil	newfd->ifil
-#define Ofil	newfd->ofil
-#define Efil	newfd->efil
-#define Infd	newfd->infd
-#define Outfd	newfd->outfd
-#define Errfd	newfd->errfd
-#define Oldin	oldfd->infd
-#define Oldout	oldfd->outfd
-#define Olderr	oldfd->errfd
-
 #ifdef DEBUG
-fprints(2,"Redirect...\n");
-fprints(2,"Infd is %d\n",Infd);
-fprints(2,"Outfd is %d\n",Outfd);
+fprints(12,"Redirect...\n");
 #endif
 
-    bckgnd = how & H_BCKGND;
-    appnd = how & H_APPEND;
-    if (oldfd!=NULL)
-     { Oldin=0; Oldout=1; Olderr=2; }
+  for (i=0; i<10; i++)		/* Do each fd in turn */
+   {
 
-    if (Infd == 0 && bckgnd)	/* don't allow read from background */
-    {
-	strcpy(Ifil, "/dev/null");
-	Infd = (-2);		/* now take input from /dev/null */
-    }
-    if (Infd != 0)		/* Redirect input */
-    {
-	if (oldfd != NULL)
-	    if ((Oldin = dup(0)) == -1)
-	    {
-		fprints(2, "dup: old stdin\n"); return (-1);
-	    }
-	close(0);
-	if (Infd > 0)
-	{
-	    if (dup(Infd) != 0)	/* panic, did not dup stdin */
-	    {
-		fprints(2, "dup: stdin\n"); return (-1);
-	    }
-	    close(Infd);
-	}
-	else if (open(Ifil, O_RDONLY, 0) == -1)
-	{
-	    fprints(2, "Can't open %s\n", Ifil); return (-1);
-	}
-    }
-    if (Outfd != 1)		/* Redirect output */
-    {
-	if (oldfd != NULL)
-	    if ((Oldout = dup(1)) == -1)
-	    {
-		fprints(2, "dup: old stdout\n"); return (-1);
-	    }
-	close(1);
-	if (Outfd > 1)
-	{
-	    if (dup(Outfd) != 1)/* panic, did not dup stdout */
-	    {
-		fprints(2, "dup: stdout\n"); return (-1);
-	    }
-	    close(Outfd);
-	}
-	else
-	{
+    appnd = newfd[i].how & H_APPEND;
+
+    if (newfd[i].fd>2)			/* Fd is already open */
+      { close(i);
+        if (dup2(newfd[i].fd,i)==-1)
+	  { fprints(12,"Could not dup2(%d,%d)\n",newfd[i].fd,i);
+            return(-1);
+	  }
+        close(newfd[i].fd);
+      }
+    else if (newfd[i].file!=NULL)	/* Open this file */
+      { close(i);
+        if (newfd[i].how & H_FROMFILE)	/* for reading */
+         {
+	    flags= O_RDONLY;
+	    if (open(newfd[i].file, flags, mode) == -1)
+	      { fprints(12, "Can't open %s\n", newfd[i].file); return (-1); }
+         }
+        else				/* for writing */
+         {
 	    flags = O_WRONLY | O_CREAT;
 	    if (!appnd)
-		flags |= O_TRUNC;
+	        flags |= O_TRUNC;
 	    mode = 0777;
-	    if (open(Ofil, flags, mode) == -1)
-	    {
-		fprints(2, "Can't open %s\n", Ofil); return (-1);
-	    }
+	    if (open(newfd[i].file, flags, mode) == -1)
+	    { fprints(12, "Can't open %s\n", newfd[i].file); return (-1); }
 	    if (appnd) lseek(1, 0L, 2);
-	}
-    }
-#ifdef NOTYET
-    if (Errfd != 2)		/* Redirect error */
-    {
-	if (oldfd != NULL)
-	    if ((Olderr = dup(2)) == -1)
-	    {
-		fprints(2, "dup: old stderr\n"); return (-1);
-	    }
-	close(2);
-	if (Errfd > 2)
-	{
-	    if (dup(Errfd) != 2)
-	    {
-		fprints(2, "dup: stderr\n"); return (-1);
-	    }
-	    close(Errfd);
-	}
-	else
-	{
-	    flags = O_WRONLY | O_CREAT | O_TRUNC;
-	    mode = 0777;
-	    if (open(Efil, flags, mode) == -1)
-	    {
-		fprints(2, "Can't open %s\n", Efil); return (-1);
-	    }
-	}
-    }
-#endif
- return(0);
+         }
+      }
+   }
 }
 
 /* Runalias checks to see if there is an alias, and then runs it.
@@ -147,7 +106,7 @@ int runalias(argc, argv)
   if (checkalias(argv[0])!=NULL)
     {
 #ifdef DEBUG
-prints("About to send the alias through doline()\n");
+fprints(11,"About to send the alias through doline()\n");
 #endif
 	oldgetline= getline;
 	getline= getaliasline;
@@ -168,22 +127,21 @@ prints("About to send the alias through doline()\n");
 int invoke(argc,argv,newfd,how)
  int argc,how;
  char *argv[];
- struct rdrct *newfd;
+ struct rdrct newfd[];
  {
   int pid,i;
   int builtin();
-  struct rdrct oldfd;
 
 			/* Firstly redirect the input/output */
-  redirect(newfd,&oldfd,how);
+  redirect(newfd);
 			/* Try builtins & unredirect if yes */
   if (argc==0 || (builtin(argc,argv)!=-1))
-    { redirect(&oldfd,NULL,0); return(0); }
+    { return(0); }
 
 			/* Else fork/exec the process */
   switch(pid=fork())
    {
-    case -1: fprints(2,"Can't create new process\n");
+    case -1: fprints(12,"Can't create new process\n");
 	     return;
 			/* Restore signals to normal if fg */
     case 0:  if (!(how & H_BCKGND)) dflsig();
@@ -191,7 +149,7 @@ int invoke(argc,argv,newfd,how)
 	       {	/* Move process to new proc-grp if bg */
 #ifdef JOB
 #ifdef DEBUG
-		prints("About to setpgrp on bckgnd process\n");
+		fprints(11,"About to setpgrp on bckgnd process\n");
 #endif
     		setpgrp(0,getpid());
 #endif
@@ -204,15 +162,15 @@ int invoke(argc,argv,newfd,how)
 
 	     if ((i=runalias(argc,argv))!=-1) exit(i);
 
-	     /* fprints(2,"Execing %s as pid %d\n",argv[0],getpid()); */
+	     /* fprints(12,"Execing %s as pid %d\n",argv[0],getpid()); */
 	     execvp(argv[0],argv);
 			/* Failed, exit the child */
-	     fprints(2,"Can't execute %s\n",argv[0]);
+	     fprints(12,"Can't execute %s\n",argv[0]);
 	     exit(0);
 			/* Unredirect our I/O */
-    default: redirect(&oldfd,NULL,0);
+    default: 
 #ifdef DEBUG
-prints("Just forked %s, pid %d\n",argv[0],pid);
+fprints(11,"Just forked %s, pid %d\n",argv[0],pid);
 #endif
 #ifdef JOB
 	     addjob(pid,argv[0]);

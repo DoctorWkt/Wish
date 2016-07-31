@@ -103,15 +103,34 @@ void leave_shell()
   exit(0);
  }
 
+static char *defbind[15][3]= {
+	NULL, "\033\020",	"\201",
+	NULL, "\033B",		"\202",
+	NULL, "\033b",		"\202",
+	NULL, "\033D",		"\203",
+	NULL, "\033d",		"\203",
+	NULL, "\033F",		"\204",
+	NULL, "\033f",		"\204",
+	NULL, "\033H",		"\205",
+	NULL, "\033h",		"\205",
+	NULL, "\033P",		"\206",
+	NULL, "\033p",		"\206",
+	NULL, "\033Y",		"\207",
+	NULL, "\033y",		"\207",
+	NULL, "\033/",		"\210",
+	NULL, "\033?",		"\211"
+	};
+
 /* Setup does most of the initialisation of the shell. Firstly the default
  * variables & the environ variables are set up. Then the termcap strings
  * are found, and then any other misc. things are done.
  */
 void setup()
  {
-  extern char currdir[];
-  int source();
+  extern char currdir[],CLEmode;
+  int source(),i;
   char *argv[2];
+
 				/* Initialise the environment */
   if (!EVinit()) fatal("Can't initialise environment");
 #ifdef UCB
@@ -129,7 +148,10 @@ void setup()
 #endif
   terminal();				/* Get the termcap strings */
 
-  argv[0]="source"; argv[1]=".klamrc";
+  for (i=0; i<15; i++) Bind(3,defbind[i]);	/* Set default bindings */
+  CLEmode=0;					/* and start in mode 1 */
+
+  argv[0]="source"; argv[1]=".klamrc";	/* Source .klamrc */
   source(2,argv);
  }
 
@@ -178,7 +200,7 @@ prints("Getline f'n ptr is %x\n",getline);
       joblist(0);				/* print the list of jobs */
 #endif
  		   				/* Close any leftover fds */
-    for (i=4; i<20; i++) (void)close(i);
+    /* for (i=4; i<20; i++) (void)close(i); */
     return(TRUE);
    }
   return(FALSE);

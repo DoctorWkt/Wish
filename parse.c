@@ -15,8 +15,9 @@ static struct candidate *pcurr;		/* A ptr to the word we are parsing */
  * If 0, word points to a string that holds a normal word. This is guaranteed
  * not to be clobbered until we get back out to main().
  */
-static int gettoken(word)
+static int gettoken(word,fd)
  char **word;  
+ int *fd;
  {
   int mode;
   
@@ -28,7 +29,8 @@ static int gettoken(word)
 
     if (mode&C_WORDMASK)		/* We've found a token, return */
       { *word=NULL;
-         mode &=C_WORDMASK; 		/* (stripping fd for now) */
+	*fd= mode & 15;
+	 mode &=C_WORDMASK;		/* (stripping fd for now) */
          pcurr=pcurr->next; return(mode);
       }
     if (((*word=pcurr->name)!=NULL) && **word!=EOS)
@@ -55,19 +57,21 @@ int command(waitpid,makepipe,pipefdp)	/* Do simple command */
  {
   int token,term,gettoken();
   int argc,pid,pfd[2];
-  char *argv[MAXARG+1],*srcfile, *dstfile;
+  char *argv[MAXARG+1];
   char *word;
-  int how=0;
-  struct rdrct newfd;
+  int i, fd, how=0;
+  struct rdrct newfd[10];
 
-#define srcfd newfd.infd
-#define dstfd newfd.outfd
-
-  argc=0; argv[0]=NULL; srcfd=0; dstfd=1; 
-  if (makepipe==FALSE) pcurr=carray;	/* Start parsing the carray */
+  argc=0; argv[0]=NULL;
+  for (i=0; i<10; i++) { newfd[i].fd=0; newfd[i].file=NULL; }
+  if (makepipe==FALSE) 
+    { pcurr=carray;		/* Start parsing the carray */
+      if (dupup())		/* Dup up our fds */
+       { fprints(2,"Could not dup our fds\n"); return(C_EOF); }
+    }
   while(1)
    {
-    token=gettoken(&word);
+    token=gettoken(&word, &fd);
 #ifdef DEBUG
 prints("Token is %o",token); if (word!=NULL) prints(" word is %s",word);
 write(1,"\n",1);
@@ -80,17 +84,16 @@ write(1,"\n",1);
 		   continue;
       case C_LT:   if (makepipe)
 		     { fprints(2,"Extra <\n"); break; }
-		   if (gettoken(&srcfile)!=C_WORD)
+		   if (gettoken(&(newfd[fd].file),&i)!=C_WORD)
 		     { fprints(2,"Illegal <\n"); break; }
-		   srcfd= BADFD;
+		   newfd[fd].how= H_FROMFILE;
 		   continue;
       case C_GT  :
-      case C_GTGT: if (dstfd!=1)
+      case C_GTGT: if (newfd[fd].fd!=0 || newfd[fd].file!=NULL)
 		     { fprints(2,"Extra > or >>\n"); break; }
-		   if (gettoken(&dstfile)!=C_WORD)
+		   if (gettoken(&(newfd[fd].file),&i)!=C_WORD)
 		     { fprints(2,"Illegal > or >>\n"); break; }
-		   dstfd= BADFD;
-		   if (token==C_GTGT) how |= H_APPEND;
+		   if (token==C_GTGT) newfd[fd].how = H_APPEND;
 		   continue;
       case C_AMP :		/* If a pipe, call ourselves to get */
       case C_SEMI:		/* the write file descriptor */
@@ -98,9 +101,9 @@ write(1,"\n",1);
       case C_PIPE: argv[argc]=NULL;
 		   if (token==C_PIPE)
 		    {
-		     if (dstfd!=1)
+		     if (newfd[1].fd!=0 || newfd[1].file!=NULL)
 		      { fprints(2,"> or >> conflicts with |\n"); break; }
-		     term=command(waitpid,TRUE,&dstfd);
+		     term=command(waitpid,TRUE,&(newfd[1].fd));
 		    }		/* and set up the terminal token */
 		   else term=token;
 				/* If called by us, make the needed pipe */
@@ -110,16 +113,15 @@ write(1,"\n",1);
 		       { perror("pipe"); break; }
 				/* and return the write file descriptor */
 		      *pipefdp=pfd[1];
-		      srcfd=pfd[0];
+		      newfd[0].fd=pfd[0];
 		     }
-		   newfd.ifil=srcfile;
-		   newfd.ofil=dstfile;
-		   if (term==C_AMP) how |= H_BCKGND;
-		   pid=invoke(argc,argv,&newfd,how);
+		   if (term==C_AMP) how = H_BCKGND;
+		   pid=invoke(argc,argv,newfd,how);
 				/* End of command line, return pid to wait */
 		   if (token!=C_PIPE) *waitpid=pid;
-		   if (argc==0 && (token!=C_EOF || srcfd>1))
+		   if (argc==0 && token!=C_EOF)
 			fprints(2,"Missing command\n");
+  		   if (makepipe==FALSE) dupdown();
 		   return(term);
       default:     prints("Unknown token %o in command()\n",token);
      }

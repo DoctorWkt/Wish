@@ -237,18 +237,16 @@ struct candidate
 /* Redirection
  *
  * The rdrct structure holds the new file descriptors for the process,
- * and their file names (if any). If a file descriptor is negative, the
- * respective file must be opened. If the fd values are not 0,1 and 2,
- * redirect() will dup them to be 0,1 and 2.
+ * or their file names (if any). Redirect() gets 10 of these, and 
+ * for (i=0 to 9) { if name not null, open(name); else if fd not 0,
+ * dup2(fd,i); }
+ * The how field can have the H_ bits described above.
  */
 
 struct rdrct {
-        int infd;                       /* The input file descriptor */
-        int outfd;                      /* The output file descriptor */
-        int errfd;                      /* The error file descriptor */
-        char *ifil;                     /* Input file's name */
-        char *ofil;                     /* Output file's name */
-        char *efil;                     /* Error file's name */
+        int fd;                         /* The input file descriptor */
+	int how;			/* How to open up the file */
+        char *file;                     /* Input file's name */
         };
 
 /* Command Line Editing

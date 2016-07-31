@@ -1,0 +1,36 @@
+# Add vi-like bindings to clam. First we must remove the default bindings
+# and then add the vi bindings. If you so desire you could modify the
+# source to default to vi bindings.
+# We could bind every unused key to BEEP, but that would be pointless.
+#
+unbind 
+unbind B
+unbind b
+unbind D
+unbind d
+unbind F
+unbind f
+unbind H
+unbind h
+unbind P
+unbind p
+unbind Y
+unbind y
+unbind /
+unbind '?'
+bind  
+bind -m i 
+bind -m I 
+bind -m a 
+bind -m A 
+bind -m ^ \001
+bind -m $ \005
+bind -m h 
+bind -m j 
+bind -m k 
+bind -m l 
+bind -m x \004
+bind -m w \204
+bind -m dw \203
+bind -m b \202
+bind -m cw \203\036

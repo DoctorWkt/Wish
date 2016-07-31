@@ -1,65 +1,75 @@
 #include "header.h"
 
-/* List of commands defined for the command line editor */
-/* Note that the first commands up to SUSP are exactly */
-/* 256 higher than the ASCII code for the corresponding key */
+/* List of commands defined for the command line editor.
+ * We only use the ctrl chars, so that people can use
+ * the editor with 8-bit ascii characters.
+ */
 
-#define MARK		256	/* Save position, make a mark */
-#define START		257	/* Go to start of line */
-#define BAKCH		258	/* Go back one character */
-#define INT		259	/* Interrupt this task */
-#define DELCH		260	/* Delete the current character */
-#define END		261	/* Goto the end of the line */
-#define FORCH		262	/* Go forward one char */
-#define KILLALL		263	/* Kill the whole line */
-#define BKSP		264	/* Backspace over previous character */
-#define COMPLETE	265	/* Complete the current word */
-#define FINISH		266	/* Finish and execute the line */
-#define KILLEOL		267	/* Kill from cursor to end of line */
-#define CLREDISP	268	/* Clear screen & redisplay line */
-#define NEXTHIST	270	/* Step forward in history */
-#define OVERWRITE	271	/* Toggle insert/overwrite mode */
-#define BACKHIST	272	/* Step backward in history */
-#define XON		273	/* Resume tty output */
-#define REDISP		274	/* Redisplay the line */
-#define XOFF		275	/* Stop tty output */
-#define TRANSPCH	276	/* Transpose current & previous characters */
-#define LOOP		277	/* Do a command n times */
-#define QUOTE		278	/* Quote next character literally */
-#define DELWD		279	/* Delete word backwards */
-#define GOMARK		280	/* Goto a mark */
-#define YANKLAST	281	/* Yank the previous word into a buffer */
-#define SUSP		282	/* Suspend process */
+#define MARK		  0	/* Save position, make a mark */
+#define START		  1	/* Go to start of line */
+#define BAKCH		  2	/* Go back one character */
+#define INT		  3	/* Interrupt this task */
+#define DELCH		  4	/* Delete the current character */
+#define END		  5	/* Goto the end of the line */
+#define FORCH		  6	/* Go forward one char */
+#define KILLALL		  7	/* Kill the whole line */
+#define BKSP		  8	/* Backspace over previous character */
+#define COMPLETE	  9	/* Complete the current word */
+#define FINISH		 10	/* Finish and execute the line */
+#define KILLEOL		 11	/* Kill from cursor to end of line */
+#define CLREDISP	 12	/* Clear screen & redisplay line */
+#define NEXTHIST	 14	/* Step forward in history */
+#define OVERWRITE	 15	/* Toggle insert/overwrite mode */
+#define BACKHIST	 16	/* Step backward in history */
+#define XON		 17	/* Resume tty output */
+#define REDISP		 18	/* Redisplay the line */
+#define XOFF		 19	/* Stop tty output */
+#define TRANSPCH	 20	/* Transpose current & previous characters */
+#define LOOP		 21	/* Do a command n times */
+#define QUOTE		 22	/* Quote next character literally */
+#define DELWD		 23	/* Delete word backwards */
+#define GOMARK		 24	/* Goto a mark */
+#define YANKLAST	 25	/* Yank the previous word into a buffer */
+#define SUSP		 26	/* Suspend process */
 
-#define MATCHPART	291	/* Match a previous partial command */
-#define BAKWD		292	/* Go backwards one word */
-#define DELWDF		293	/* Delete word forwards */
-#define FORWD		294	/* Go forwards one word */
-#define GETHELP		295	/* Get help on a word */
-#define PUT		296	/* Insert buffer on the line */
-#define YANKNEXT	297	/* Yank the next word into the buffer */
-#define SEARCHF		298	/* Search forward for next typed character */
-#define SEARCHB		299	/* Search backwards for next typed character */
+#define BEEP		 28	/* Simply ring the bell */
+#define MODEON		 29	/* Include bindings with mode bit on */
+#define MODEOFF		 30	/* Exclude bindings with mode bit on */
+#define QUOTEUP		 31	/* Turn the following char's msb on */
 
+#define MATCHPART	129	/* Match a previous partial command */
+#define BAKWD		130	/* Go backwards one word */
+#define DELWDF		131	/* Delete word forwards */
+#define FORWD		132	/* Go forwards one word */
+#define GETHELP		133	/* Get help on a word */
+#define PUT		134	/* Insert buffer on the line */
+#define YANKNEXT	135	/* Yank the next word into the buffer */
+#define SEARCHF		136	/* Search forward for next typed character */
+#define SEARCHB		137	/* Search backwards for next typed character */
+
+#define uchar unsigned char	/* CLE uses unsigned chars throughout */
 
 /* Clam allows keystrokes to be bound to other keystrokes. The following
- * structure is used to hold these bindings.
+ * structure is used to hold these bindings. Note well the mode bit; a
+ * binding with mode!=0 is only used when the CLE has it's mode bit on.
  */
 
 struct keybind {
-	char *key;		/* The key sequence we have bound */
+	uchar *key;		/* The key sequence we have bound */
 	int len;		/* The length of the key sequence */
-	char *cmd;		/* The string it is mapped to */
+	uchar *cmd;		/* The string it is mapped to */
+	uchar mode;		/* Mode bit. Binding only used when mode on */
 	struct keybind *next;
 	};
 
 
-char yankbuf[512];			/* Buffer used when yanking words */
-static char bindbuf[512];		/* Buffer used to expand bindings */
-static char *bindptr;			/* Pointer into bindbuf */
-static char *wordterm;			/* Characters that terminate words */
+uchar yankbuf[512];			/* Buffer used when yanking words */
+static uchar bindbuf[512];		/* Buffer used to expand bindings */
+static uchar *bindptr;			/* Pointer into bindbuf */
+static uchar *wordterm;			/* Characters that terminate words */
 static int Keylength=0;			/* The maximum key length */
 static struct keybind *Bindhead=NULL;	/* List of bindings */
+uchar CLEmode;				/* This holds the CLE mode */
 int wid;				/* The width of the screen (minus 1) */
 
 /* A quick blurb on the curs[] structure.
@@ -77,36 +87,50 @@ int curs[2];
 
 int Bind(argc, argv)
  int argc;
- char *argv[];
+ uchar *argv[];
  {
   int s,showall;
-  char *key, *cmd;
+  uchar *key, *cmd, *ctemp;
   struct keybind *temp, *Bindtail;
 
-  if (argc>3)
-    { fprints(2,"usage: bind [key [value]]\n"); return(1); }
+  if (argc>4)
+    { fprints(2,"usage: bind [[-m] key [value]]\n"); return(1); }
   showall=0;
   switch(argc)
    {
+    case 4: key=argv[2]; cmd=argv[3];	/* Bind a string to another */
+	    goto bindit;		/* Yuk, a goto */
     case 3: key=argv[1]; cmd=argv[2];	/* Bind a string to another */
+bindit:
 	    s=strlen(key);		/* Get the key's length */
 	    if (s==0) break;
 
 	    temp=(struct keybind *)malloc(sizeof(struct keybind));
 	    if (!temp) { perror("malloc"); return(1); }
-	    temp->key= (char *)malloc(s+1);
+	    temp->key= (uchar *)malloc(s+1);
 	    if (!(temp->key)) { perror("malloc"); return(1); }
 
 	    strcpy(temp->key,key);	/* Copy the key */
 	    temp->len=s;
-	    temp->cmd= (char *)malloc(strlen(cmd)+1);
+	    temp->cmd= (uchar *)malloc(strlen(cmd)+1);
 	    if (!(temp->cmd)) { perror("malloc"); return(1); }
-	    strcpy(temp->cmd,cmd);
+					/* Copy the value */
+	    ctemp=temp->cmd;
+	    while (*cmd!=EOS)
+	     { if (*cmd!='\\') *(ctemp++)= *(cmd++);
+	       else { showall=0; cmd++;		/* or an octal value */
+		      while(isdigit(*cmd))
+			showall= (showall<<3) + (*(cmd++)-48); 
+		      *(ctemp++)= showall&0xff;
+		    }
+	     }
+	    *ctemp=EOS;
 	    temp->next=NULL;
+	    if (argc==4) temp->mode=1; else temp->mode=0;
 	    if (s>Keylength) Keylength=s;
 
 	    if (!Bindhead)		/* Add to linked list */
-		Bindhead=temp;
+		Bindhead=temp;	/* Currently this allows duplicates :-( */
 	    else
 	      { for (Bindtail=Bindhead;Bindtail->next;Bindtail=Bindtail->next);
 		Bindtail->next=temp;
@@ -115,7 +139,8 @@ int Bind(argc, argv)
     case 1: showall=1;			/* Print one or more bindings */
     case 2: for (temp=Bindhead;temp;temp=temp->next)
 	      if (showall || !strcmp(temp->key,key))
-		{ mprint(temp->key,1);
+		{ if (temp->mode) prints(" * "); else prints("   ");
+		  mprint(temp->key,1);
 		  for (s=Keylength-temp->len; s; s--) write(1," ",1);
 		  prints(" bound to ");
 		  mprint(temp->cmd,0);
@@ -128,9 +153,9 @@ int Bind(argc, argv)
 
 int unbind(argc,argv)
  int argc;
- char *argv[];
+ uchar *argv[];
  {
-  int s; char *key;
+  int s; uchar *key;
   struct keybind *temp, *t2;
 
   if (argc!=2)
@@ -167,9 +192,9 @@ int unbind(argc,argv)
  */
 
 static void expbind(inbuf)	/* Expand bindings from user's input */
- char *inbuf;
+ uchar *inbuf;
  {
-  char a, *startptr, *exactptr;
+  uchar a, *startptr, *exactptr;
   int c,currlen,partial,exact;
   struct keybind *temp;
 
@@ -181,13 +206,15 @@ static void expbind(inbuf)	/* Expand bindings from user's input */
    {
     partial=exact=0;
     if ((inbuf==NULL) || ((a= *(inbuf++))==EOS)) c=read(0,&a,1);
-    if (c!=-1)			/* Decide which char to put in the buffer */
+    if (c!=-1)			/* Decide which uchar to put in the buffer */
       { *(bindptr++)=a;
         *bindptr=EOS; currlen++;
         if ((int)(bindptr-bindbuf)>510) return; }
 
     for (temp=Bindhead;temp!=NULL;temp=temp->next)
      {				/* Count the # of partial & exact matches */
+				/* We exclude mode bindings when CLEmode==0 */
+      if (CLEmode==0 && temp->mode==1) continue;
       if (currlen>temp->len) continue;
       if (!strcmp(startptr,temp->key)) { exact++; exactptr=temp->cmd; }
       if (!strncmp(startptr,temp->key,currlen)) partial++;
@@ -220,41 +247,17 @@ fprints(2,"Bindbuf is ");
 mprint(bindbuf,0);
 #endif
   oldc=0;
-  while(1)
-   {			/* If no chars, get chars from stdin and */
+   			/* If no chars, get chars from stdin and */
 			/* expand bindings */
     while ((c= *(bindptr++))==0) { expbind(NULL); bindptr=bindbuf; }
 
 			/* Default to usual keys */
     if (c==13) return(FINISH);
     if (c==127) return(BKSP);
-    if (oldc==27)
-      switch(c)
-       {
-	case 16:  return(MATCHPART);
-	case 'b':
-	case 'B': return(BAKWD);
-	case 'd':
-	case 'D': return(DELWDF);
-	case 'f':
-	case 'F': return(FORWD);
-	case 'h':
-	case 'H': return(GETHELP);
-	case 'p':
-	case 'P': return(PUT);
-	case 'y':
-	case 'Y': return(YANKNEXT);
-	case '/': return(SEARCHF);
-	case '?': return(SEARCHB);
-        default : bindptr--; return(27);
-       }
-    if (c==27) { oldc=c; continue; }
-    if (c<32 && c>=0) c+= 256;	/* Most ctrl chars become commands */
 #ifdef DEBUG
 fprints(2,"Returning %x\n",c);
 #endif
     return(c);
-   }			
  }
 
 /* Mputc prints out a character and updates the cursor position.
@@ -262,7 +265,7 @@ fprints(2,"Returning %x\n",c);
  */
 
 void mputc(c,f)
-  char c;
+  uchar c;
   int f;
 {
   write(f,&c,1);
@@ -280,7 +283,7 @@ void mputc(c,f)
  */
 
 void oputc(c)
-  char c;
+  uchar c;
 {
   write(1,&c,1);
 }
@@ -363,12 +366,12 @@ void forward()
  * case 3: Goend	Goto the end of the line.
  */
 int Show(line,pos,letter,flag)
-  char *line,letter;
+  uchar *line,letter;
   int pos,flag;
 {
   extern int lenprompt;
   int i,horig,vorig;
-  char c;
+  uchar c;
 
   switch(flag)
    {						/* Case 0: insert character */
@@ -404,10 +407,10 @@ int Show(line,pos,letter,flag)
 
 /* I'm not exactly sure what copyback() does yet - Warren */
 void copyback(line,pos,count)
-  char *line;
+  uchar *line;
   int pos,count;
 {
-  char c;
+  uchar c;
   int i,horig,vorig,wipe;
 
 #ifdef DEBUG
@@ -465,11 +468,11 @@ void copyback(line,pos,count)
  * Although pos is passed as a pointer, only forword() updates the value.
  */
 void nextword(line,p,flag)
-  char *line;
+  uchar *line;
   int *p,flag;
 {
   int inword=0,l=1,pos= *p,charcount=0;
-  char c;
+  uchar c;
 
   while(l)
    {
@@ -505,7 +508,7 @@ void nextword(line,p,flag)
  * backword update the value.
  */
 void prevword(line,p,flag)
-  char *line;
+  uchar *line;
   int *p,flag;
 {
   int inword=0,l=1,pos= *p,charcount=0;
@@ -537,7 +540,7 @@ void prevword(line,p,flag)
 
 /* Clrline: The line from the position pos is cleared */
 void clrline(line,pos)
-  char *line;
+  uchar *line;
   int pos;
 {
   extern bool tflagexist();
@@ -568,10 +571,10 @@ fprints(2,"cleared ok\n");
 
 /* Transpose transposes the characters at pos and pos-1 */
 void transpose(line,pos)
-  char *line;
+  uchar *line;
   int pos;
 {
-  char temp;
+  uchar temp;
 
   if (line[pos-1]<32 || line[pos-1]==127) backward();
   backward();
@@ -602,7 +605,7 @@ void transpose(line,pos)
 int strip ( char *line )
 #else
 int strip(line)
-  char *line;
+  uchar *line;
 #endif
 {
   int i,nosave=0;
@@ -622,23 +625,23 @@ int strip(line)
  * should be saved.
  */
 bool getuline(line,nosave)
-  char *line;
+  uchar *line;
   int *nosave;
 {
   extern char *EVget();
   extern char beep[],cl[];
   extern int errno,lenprompt,curr_hist,maxhist;
   extern void prprompt(), setcbreak();
-  char a;
+  uchar a;
   int c,times=1,i,pos=0,hist=curr_hist,
       hsave=lenprompt,vsave=0,possave=0;
   int beeplength=strlen(beep);
 
   curs[0]=lenprompt;	/*lenprompt global set by prprompt or when prompt set*/
   curs[1]=0;		/* start on line 0 */
-  wordterm=EVget("wordterm");	/* Determine the word terminators */
-  if (wordterm==NULL || *wordterm==EOS)
-	wordterm= " \t><|/;=&`";
+  wordterm=(uchar *)EVget("wordterm");	/* Determine the word terminators */
+  if (wordterm==(uchar *)NULL || *wordterm==EOS)
+	wordterm= (uchar *)" \t><|/;=&`";
   bindptr=bindbuf;	/* Set up the pointer to the bind buffer */
   *bindptr=EOS;
 
@@ -812,6 +815,21 @@ bool getuline(line,nosave)
 		     }
 		else Beep;	/* at end of line */
 		break;
+     case MODEON : CLEmode=1;			/* Turn the CLE mode on */
+		break;
+     case MODEOFF: CLEmode=0;			/* Turn the CLE mode off */
+		break;
+     case BEEP: Beep;				/* Simply beep */
+		break;
+      case QUOTEUP: if (pos>=MAXLL)		/* Turn on next char's msb */
+		 { Beep;
+		   continue;
+		 }
+		 mputc('"',1); backward();	/* literal char */
+		 read(0,&a,1); c=a;
+		 if (c)			/* don't allow EOS (null) */
+		   { c|= 0x80; insert(line,pos++,c); }
+		 break;
       default:	if (pos>=MAXLL-1)
 		 { Beep;
 		   break;
