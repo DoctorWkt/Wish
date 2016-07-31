@@ -91,8 +91,10 @@ $(OBJS): Makefile header.h
 lint : $(SRCS)
 	lint $(LINTFLAGS) $(DEFINES) $(SRCS)
 
+clr:	rm -rf *.$(O) shell
+
 clean :
-	rm -f *.$(O) shell
+	rm -f *.$(O)
 
 store : clean
 	compress *.c
@@ -105,4 +107,4 @@ delete :
 	@ sleep 1;echo -n "going..."
 	@ sleep 2;echo -n "going..."
 	@ sleep 2;echo "GONE\!\!"
-	rm -f *.$(O) *.c shell
+	rm -f *.$(O) *.c *.h shell

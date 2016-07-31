@@ -27,7 +27,7 @@ static TOKEN gettoken(word)	/*correct and classify token*/
 		      case '\t': continue;
 		      case '>':  state=GTGT;
 				 continue;
-		      case '"':  state=INQUOTE;
+		      case '\'': state=INQUOTE;
 				 continue;
 		      default:   state=INWORD;
 				 *w++=c;
@@ -40,7 +40,7 @@ static TOKEN gettoken(word)	/*correct and classify token*/
 		     {
 		      case '\\' : *w++= *(parsebuf++);
 				  continue;
-		      case '"':   *w='\0';
+		      case '\'':  *w='\0';
 				  return(T_WORD);
 		      default:    *w++=c;
 				  continue;

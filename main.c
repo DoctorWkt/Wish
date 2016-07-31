@@ -64,9 +64,10 @@ prints("Brk value is %x\n",i);
     setcbreak();				/* Set cbreak mode */
     if (getuline(linebuf,&q,FALSE)==TRUE)	/* Get a line from user */
      {
-      meta_1(linebuf,TRUE);			/* Expand metachars */
-      savehist(expline(carray),curr_hist++,maxhist); /* Save the line */
-      meta_2();					/* Expand metachars */
+      if (meta_1(linebuf,TRUE)==FALSE) continue; /* Expand ! */
+      savehist(expline(carray));		/* Save the line */
+      meta_2();					/* Expand $ and ~ */
+      meta_3();					/* Expand * ? and [] */
       setcooked();
       parsebuf=a=expline(carray);
       strcat(parsebuf,"\n");

@@ -20,19 +20,14 @@ bool nohistdup=TRUE;
  * number, and ensuring that there are no more than max histories.
  * It returns 1 if saved, or 0 if a duplicate or other errors.
  */
-#ifdef PROTO
-int savehist ( char *line , int histnum , int max )
-#else
-int savehist(line,histnum,max)
+int savehist(line)
   char *line;
-  int histnum,max;
-#endif
 {
   struct histlist *ptr,*old;
   extern bool nohistdup;
 
-		/* Find the end of the list, or up to histnum */
-  for (old=ptr=htop;ptr && ptr->hnum!=histnum;old=ptr,ptr=ptr->next);
+		/* Find the end of the list, or up to curr_hist */
+  for (old=ptr=htop;ptr && ptr->hnum!=curr_hist;old=ptr,ptr=ptr->next);
   if (ptr)				/* change existing history */
   {
     if (nohistdup && !strcmp(old->hline,line))
@@ -52,9 +47,9 @@ fprints(2,"nohistdup %d old %s line %s.\n",nohistdup,old->hline,line);
 	return(0);			/* don't save duplicates */
       old->next=ptr=(struct histlist *) malloc((unsigned)(sizeof(struct histlist))); 
       ptr->hline=line;
-      ptr->hnum=histnum;
+      ptr->hnum=curr_hist;
       ptr->next=NULL;
-      while (histnum-(htop->hnum)>max)	/* Free old histories */
+      while (curr_hist-(htop->hnum)>maxhist)	/* Free old histories */
       {
 	ptr=htop;
 	htop=htop->next;
@@ -65,10 +60,10 @@ fprints(2,"nohistdup %d old %s line %s.\n",nohistdup,old->hline,line);
     {
       htop=(struct histlist *) malloc ((unsigned)(sizeof(struct histlist)));
       htop->hline=line;
-      htop->hnum=histnum;
+      htop->hnum=curr_hist;
       htop->next=NULL;
     }
-  return(1);
+  curr_hist++; return(1);
 }
 
 /* Loadhist finds the command line with the given histnum, and loads it
@@ -193,9 +188,9 @@ char *gethist(event)
   {
     switch(*event)
     {
-      case '-': histnum=curr_hist-atoi(event+2);
+      case '-': histnum=curr_hist-atoi(event+1);
 		break;
-      case '!': histnum=curr_hist-2;
+      case '!': histnum=curr_hist-1;
 		break;
       default : histnum=atoi(event);
     }
