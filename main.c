@@ -1,9 +1,5 @@
 #include "header.h"
 
-#ifndef MAXARG
-#define MAXARG  20
-#endif
-
 char linebuf[1000];
 char *prompt;
 int lenprompt;
@@ -25,14 +21,13 @@ void leave_shell()
 
 main()
  {
-  extern FILE *zin, *zout;
-  extern char currdir[];
-  extern int curr_hist, maxhist;
-  char *EVget();
+  extern struct candidate carray[];
+  extern char currdir[], *parsebuf;
+  extern int curr_hist, maxhist, ncand;
+  char *a, *EVget(), *expline();
   int i,fd,pid,q;
   TOKEN term,command();
 
-  zin=stdin; zout=stdout;		/* Set up out I/O */
 #ifdef UCB
   if (getwd(currdir))			/* Get the current directory */
 #else
@@ -50,30 +45,40 @@ main()
   if (!EVinit()) fatal("Can't initialise environment");
   if ((prompt=EVget("PS2"))==NULL) prompt="> ";
   lenprompt=strlen(prompt);
-  prprompt();
 
   while(1)
    {						/* Run a command */
+#define DEBUG
+#ifdef DEBUG
+i= (int)sbrk(0);
+prints("Brk value is %x\n",i);
+#endif
+    prprompt();
     for (i=0; i<1000; i++) linebuf[i]=0;
     setcbreak();				/* Set cbreak mode */
     if (getuline(linebuf,&q,FALSE)==TRUE)	/* Get a line from user */
      {
-      savehist(linebuf,curr_hist++,maxhist);	/* Save the line */
       meta_1(linebuf,TRUE);			/* Expand metachars */
+      savehist(expline(carray),curr_hist++,maxhist); /* Save the line */
       meta_2();					/* Expand metachars */
       setcooked();
+      parsebuf=a=expline(carray);
+      strcat(parsebuf,"\n");
       term=command(&pid,FALSE,NULL);		/* Actually run it here */
-#ifdef DEBUG
-      fprints(2,"Got pid %d %d %d\n",pid,Headpid,term);
-#endif
+      free(a);
+						/* Free the command words */
+       for (i=0;i<ncand; i++)
+	if (carray[i].mode==TRUE)
+	 { carray[i].mode=FALSE;
+	   free(carray[i].name);
+	 }
       if (term!=T_AMP)				/* If we should wait on it */
 	waitfor(pid);				/* Wait for it to finish */
 #ifdef JOB
       joblist(0);				/* print the list of jobs */
 #endif
      }
-    prprompt();					/* Print the prompt again */
- 		   				/* & close any leftover fds */
+ 		   				/* Close any leftover fds */
     for (fd=3; fd<20; fd++) (void)close(fd);
    }
  }

@@ -1,5 +1,23 @@
 #include "header.h"
 
+bool echo(argc,argv)
+ int argc;
+ char *argv[];
+ {
+  int doreturn=1;
+  int firstarg=1;
+
+  if (argc>1 && !strcmp(argv[1],"-n")) { doreturn=0; firstarg=2; }
+
+  for (;firstarg<argc;firstarg++)
+   {
+    write(1,argv[firstarg],strlen(argv[firstarg]));
+    write(1," ",1);
+   }
+  if (doreturn) write(1,"\n",1);
+  return(TRUE);
+ }
+
 bool builtin(argc,argv)		/* Do builtin */
  int argc;
  char *argv[];
@@ -15,6 +33,8 @@ bool builtin(argc,argv)		/* Do builtin */
 		set(argc,argv);
   else if (!strcmp(argv[0],"history"))
 		history(argc,argv);
+  else if (!strcmp(argv[0],"echo"))
+		echo(argc,argv);
 #ifdef JOB
   else if (!strcmp(argv[0],"bg"))
 		bg(argc,argv);

@@ -5,7 +5,7 @@
 #define BR_ERR -2
 
 extern struct candidate carray[];	/* The matched files */
-static int numcand;
+int ncand;
 struct candidate *wordlist;		/* The list of words for the parser */
 
 /* Match takes a string, and a pattern, which can contain *, ? , \ and [],
@@ -116,11 +116,11 @@ int match(string,pattern,accumdir)
       strcat(where,"/");
     }
     strcat(where,string);
-    if (numcand==MAXCAN) return(OK);
-    carray[numcand].name=(char *) malloc ((unsigned)(strlen(where)+4));
-    if (carray[numcand].name==NULL) return(OK);
-    strcpy(carray[numcand].name,where);
-    carray[numcand++].mode=TRUE;		/* Was malloc'd */
+    if (ncand==MAXCAN) return(OK);
+    carray[ncand].name=(char *) malloc ((unsigned)(strlen(where)+4));
+    if (carray[ncand].name==NULL) return(OK);
+    strcpy(carray[ncand].name,where);
+    carray[ncand++].mode=TRUE;		/* Was malloc'd */
     return(OK);
   }
   else
@@ -152,9 +152,9 @@ int matchdir(directory,pattern)
 {
   DIR *dirp,*opendir();
 #ifdef UCB
-  struct direct *entry,*readdir();
-#else
   struct dirent *entry,*readdir();
+#else
+  struct direct *entry,*readdir();
 #endif
   int foundany=0;
 
@@ -238,6 +238,32 @@ void tilde(word,dir)
   if (a!=NULL) { *a='/'; strcat(dir,a); }
  }
 
+/* Expline takes a linked list of words, and converts them into a normal
+ * string. This is used to save history.
+ */
+char *expline(list)
+ struct candidate *list;
+ {
+  struct candidate *q;
+  char *out, *a;
+  int i;
+					/* Find the amount to malloc */
+  for (i=0,q=list;q!=NULL;q=q->next) if (q->name) i+= strlen(q->name) +1;
+
+  out= (char *)malloc((unsigned) i+4);
+  if (out!=NULL)
+   {
+    for (a=out,q=list;q!=NULL;q=q->next)
+      if (q->name)
+       {
+	strcpy(a,q->name);
+	a+= strlen(q->name);
+	*(a++)=' ';
+       }
+    *(--a)='\0';
+   }
+  return(out);
+ }
 
 /* Meta_1 takes the user's input line, and builds a linked list of words
  * in the carray. It also expands tildes. If start==TRUE, the carray is
@@ -247,12 +273,12 @@ void meta_1(old,start)
  char *old;
  bool start;
  {
-  char *a, *b;
+  char *a, *b, *gethist();
   char c;
   struct candidate *q;
   char tildir[MAXWL];
 
-  if (start==TRUE) { numcand=0; wordlist=carray; }
+  if (start==TRUE) { ncand=0; wordlist=carray; }
   while(1)						/* Parse each word */
    {
     for (a=old;*a!=' '&&*a!='\t'&&*a!='\n'&&*a!=0;a++);	/* Find a space */
@@ -267,24 +293,24 @@ void meta_1(old,start)
       default:					/* Append to the carray */
 		if (start==FALSE || *tildir)
 		 {
-      	          carray[numcand].name=(char *)malloc((unsigned) strlen(old)+4);
-        	  if (carray[numcand].name!=NULL)
-         	   { strcpy(carray[numcand].name,old);
-           	     carray[numcand++].mode=TRUE;
+      	          carray[ncand].name=(char *)malloc((unsigned) strlen(old)+4);
+        	  if (carray[ncand].name!=NULL)
+         	   { strcpy(carray[ncand].name,old);
+           	     carray[ncand++].mode=TRUE;
          	   }
 		 }
 		else
 		 {
-		  carray[numcand].name=old;
-		  carray[numcand++].mode=FALSE;
+		  carray[ncand].name=old;
+		  carray[ncand++].mode=FALSE;
 		 }
      }
-    carray[numcand-1].next=&carray[numcand];	/* Join the linked list */
+    carray[ncand-1].next=&carray[ncand];	/* Join the linked list */
 
-    if (start==FALSE) *a=c; if (c==EOS || numcand==MAXCAN) break;
+    if (start==FALSE) *a=c; if (c==EOS || ncand==MAXCAN) break;
     for (old=++a; *old==' '&& *old=='\t'; old++); /* Bypass whitespace */
    }
-  carray[numcand-1].next=NULL;			/* Terminate the linked list */
+  carray[ncand-1].next=NULL;			/* Terminate the linked list */
  }
 
 
@@ -300,16 +326,16 @@ void meta_2()
    {
     if (strpbrk(curr->name,"*?[\\"))	/* If we find these */
      {
-      base=numcand;				/* Save start of expansion */
+      base=ncand;				/* Save start of expansion */
       dir[0]=EOS; finddir(curr->name,dir);	/* expand them */
       a=curr->next;
       if (!matchdir(dir,curr->name))
        {
-        qsort((char *)&carray[base],numcand-base,sizeof(struct candidate),compare);
+        qsort((char *)&carray[base],ncand-base,sizeof(struct candidate),compare);
 						/* Now insert into list */
-        carray[numcand-1].next=a;
+        carray[ncand-1].next=a;
 	curr->next=&carray[base];
-	for (;base<numcand-1;base++) carray[base].next=&carray[base+1];
+	for (;base<ncand-1;base++) carray[base].next=&carray[base+1];
        }
       if (curr->mode==TRUE) { free(curr->name); curr->mode=FALSE; }
       curr->name=NULL;
@@ -317,9 +343,10 @@ void meta_2()
      }
     else curr=curr->next;
    }
+#define DEBUG
 #ifdef DEBUG
 prints("meta_2: Here's the wordlist:\n");
 for (curr=carray; curr!=NULL; curr=curr->next)
-  prints("--> %s\n",curr->name);
+  if (curr->name) prints("--> %s\n",curr->name);
 #endif
  }

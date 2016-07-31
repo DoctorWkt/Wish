@@ -1,16 +1,5 @@
-/******************************************************************************
-**                                                                           **
-**                                prints.c                                   **
-**    This file contains functions that replace printf, fprintf and sprintf, **
-**       which are smaller and do not use stdio buffering. They can only     **
-**     handle %c %s %o %d and %x as format types, although %2x and %02x can  **
-**        be done as well. Note that fprintf takes as its first argument a   **
-**                   file descriptor, not a FILE pointer.                    **
-**                                                                           **
-**      These routines were derived from the prints routine in Minix 1.5.    **
-**                                                                           **
-******************************************************************************/
 #include "header.h"
+
 #define	MAXDIG		11	/* 32 bits in radix 8 */
 #define TRUNC_SIZE 128
 static char Buf[TRUNC_SIZE], *Bufp;

@@ -1,11 +1,10 @@
 #include "header.h"
 
 int beeplength;
+char termcapbuf[1024],bs[10],nd[10],cl[10],cd[10],up[10],so[10],se[10],beep[20];
 
 /* This file contains routines for setting the terminal characteristics,
  * and for getting the termcap strings.
- *
- * The termcap globals should be put in here too.
  */
 
 void setcbreak()	/* Set terminal to cbreak mode */
@@ -134,14 +133,13 @@ bool gettstring(name,loc)
 
 void terminal()
 {
-  extern int wid,beeplength,disable_auto;
+  extern int wid,beeplength;
   extern char termcapbuf[],bs[],nd[],cl[],cd[],up[],so[],se[],beep[];
   char term[10];
 #ifdef ATT
   char *area;
 #endif
  
-  if (disable_auto) return;
 /* set up cursor control sequences from termcap */
  
   strncpy(term,getenv("TERM"),10);

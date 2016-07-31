@@ -1,12 +1,4 @@
-/******************************************************************************
-**                                                                           **
-**                                comlined.c                                 **
-**                 This file contains the COMmand LINe EDitor.               **
-**                                                                           **
-******************************************************************************/
-
 #include "header.h"
-
 
 /* List of commands defined for the command line editor */
 
@@ -48,10 +40,6 @@
 #define SEARCHB		299	/* Search backwards for next typed character */
 
 
-extern char termcapbuf[];
-extern FILE *zin,*zout,*fopen();
-extern int errno;
-
 struct keybind {
 	char *key;		/* The key we have bound */
 	int len;		/* The length of the key */
@@ -59,8 +47,13 @@ struct keybind {
 	struct keybind *next;
 	};
 
+
+extern char termcapbuf[];
+extern int errno;
+static char yankbuf[512];
 static int Keylength=0;			/* The maximum key length */
 static struct keybind *Bindhead=NULL;	/* List of bindings */
+int wid;
 
 #ifdef NOTYET
 #ifdef PROTO
@@ -144,12 +137,13 @@ void unbind(argc,argv)
 #endif	/* NOTYET */
 
 #ifdef PROTO
-static int getcomcmd ( FILE *z )
+static int getcomcmd ( int z )
 #else
 static int getcomcmd(z) /* Get either a character or a command from the */
- FILE *z;               /* user's input */
+ int z;               /* user's input */
 #endif
  {
+  char a;
   int c,currlen,matches,oldc;
   struct keybind *temp;
  
@@ -157,7 +151,7 @@ static int getcomcmd(z) /* Get either a character or a command from the */
 fprints(2,"Inside getcomcmd\n");
 #endif
 			/* Look for a binding */
-  c=getc(z); oldc=0;
+  c=read(0,&a,1); if (c!=-1) c=a; oldc=0;
   for (matches=1,currlen=0;matches && currlen<Keylength;currlen++)
    {
     matches=0;
@@ -173,12 +167,12 @@ fprints(2,"Got %x\n",c);
 	   if (currlen==temp->len-1) return(temp->cmd);
 	  }
       }
-    if (matches) { oldc=c; c=getc(z); }
+    if (matches) { oldc=c; c=read(0,&a,1); if (c!=-1) c=a; }
    }
 			/* Default to usual keys */
   if (c==13) return(FINISH);
   if (c==127) return(BKSP);
-  if (c==27) { oldc=c; c=getc(z); }
+  if (c==27) { oldc=c; c=read(0,&a,1); if (c!=-1) c=a; }
   if (oldc==27)
     switch(c)
       {
@@ -207,43 +201,43 @@ fprints(2,"Returning %x\n",c);
 
 #ifndef ATARI_ST
 #ifdef PROTO
-void mputc ( int c , FILE *f , int curs [])
+void mputc ( int c , int f , int curs [])
 #else
 void mputc(c,f,curs)
   char c;
-  FILE *f;
+  int f;
   int curs[];
 #endif
 {
   extern int wid;
 
-  write(fileno(f),&c,1);
+  write(f,&c,1);
   curs[0]++;
   if (curs[0]>=wid)
   {
-    write(fileno(f),"\n",1);			/* goto start of next line */
+    write(f,"\n",1);				/* goto start of next line */
     curs[0]=curs[0]%wid;			/* hopefully gives zero */
     curs[1]++;
   }
 }
 #else
 #ifdef PROTO
-void mputc ( int c , FILE *f , int curs [])
+void mputc ( int c , int f , int curs [])
 #else
 void mputc(c,f,curs)
   int c;
-  FILE *f;
+  int f;
   int curs[];
 #endif
 {
   extern int wid;
   char cc = c;
   
-  write(fileno(f),&cc,1);
+  write(f,&cc,1);
   curs[0]++;
   if (curs[0]>=wid)
   {
-    write(fileno(f),"\n",1);			/* goto start of next line */
+    write(f,"\n",1);			/* goto start of next line */
     curs[0]=curs[0]%wid;			/* hopefully gives zero */
     curs[1]++;
   }
@@ -258,7 +252,7 @@ void oputc(c)
   char c;
 #endif
 {
-  write(fileno(zout),&c,1);
+  write(1,&c,1);
 }
 #else
 #ifdef PROTO
@@ -269,7 +263,7 @@ int oputc(c)
 #endif
 {
     char cc = c;
-    return write(fileno(zout),&cc,1);
+    return write(1,&cc,1);
 }
 #endif
 
@@ -301,10 +295,10 @@ void go(curs,hor,vert)
 
   if (hdiff<0)				/* if negative go back */
     if (-hdiff<=hor)			/* if shorter distance just use ^H */
-      for(;hdiff;hdiff++) write(fileno(zout),bs,strlen(bs));
+      for(;hdiff;hdiff++) write(1,bs,strlen(bs));
     else				/* else cr and go forward */
     {
-      write(fileno(zout),"\r",1);
+      write(1,"\r",1);
       for (;hor;hor--) tputs(nd,1,oputc);
     }
   else					/* have to go forward */
@@ -326,7 +320,7 @@ void backward(curs)
     go(curs,wid-1,curs[1]-1);
   else
   {
-    write(fileno(zout),bs,strlen(bs));
+    write(1,bs,strlen(bs));
     curs[0]--;
   }
 }
@@ -344,7 +338,7 @@ void forward(curs)
   curs[0]++;
   if (curs[0]>=wid)
   {
-    write(fileno(zout),"\n",1);		/* goto start of next line */
+    write(1,"\n",1);		/* goto start of next line */
     curs[0]=curs[0]%wid;		/* hopefully gives zero */
     curs[1]++;
   }
@@ -389,10 +383,10 @@ void insert(line,pos,letter,curs)
   {
     if (c<32 || c==127)				/* if it's a control char */
     {
-      mputc('^',zout,curs);			/* print out the ^ and */
-      mputc(c+64,zout,curs);			/* the equivalent char for it*/
+      mputc('^',1,curs);			/* print out the ^ and */
+      mputc(c+64,1,curs);			/* the equivalent char for it*/
     }
-    else mputc(c,zout,curs);
+    else mputc(c,1,curs);
   }
   go(curs,horig,vorig);
 }
@@ -429,13 +423,13 @@ void overwr(line,pos,letter,curs)
     {
       if (c<32 || c==127)			/* if it's a control char */
       {
-	mputc('^',zout,curs);			/* print out the ^ and */
-	mputc(c+64,zout,curs);			/* the equivalent char for it*/
+	mputc('^',1,curs);			/* print out the ^ and */
+	mputc(c+64,1,curs);			/* the equivalent char for it*/
       }
-      else mputc(c,zout,curs);
+      else mputc(c,1,curs);
     }
   }
-  else mputc(letter,zout,curs);
+  else mputc(letter,1,curs);
   go(curs,horig,vorig);	/* do this in case we moved, and to update curs[] */
 }
 
@@ -464,10 +458,10 @@ void show(line,curs,clearing)
   for (c=line[pos];c!=EOS;c=line[++pos])	/* write out rest of line */
     if (c<32 || c==127)				/* if it's a control char */
     {
-      mputc('^',zout,curs);			/* print out the ^ and */
-      mputc(c+64,zout,curs);			/* the equivalent char for it*/
+      mputc('^',1,curs);			/* print out the ^ and */
+      mputc(c+64,1,curs);			/* the equivalent char for it*/
     }
-    else mputc(c,zout,curs);
+    else mputc(c,1,curs);
   go(curs,horig,vorig);			/* go back from whence you came */
 }
 
@@ -485,10 +479,10 @@ void goend(line,pos,curs)
   {
     if (c<32 || c==127)
     {
-      mputc('^',zout,curs);
-      mputc(c+64,zout,curs);
+      mputc('^',1,curs);
+      mputc(c+64,1,curs);
     }
-    else mputc(c,zout,curs);
+    else mputc(c,1,curs);
   }
 }
 
@@ -526,14 +520,14 @@ void copyback(line,pos,curs,count)
   for (c=line[pos];c;c=line[++pos])
     if (c<32 || c==127)
     {
-      mputc('^',zout,curs);
-      mputc(c+64,zout,curs);
+      mputc('^',1,curs);
+      mputc(c+64,1,curs);
     }
-    else mputc(c,zout,curs);
+    else mputc(c,1,curs);
 #ifdef DEBUG
   fprints(2,"wipe %d\n",wipe);
 #endif
-  for (i=0;i<wipe;i++) mputc(' ',zout,curs);	/* blank old chars */
+  for (i=0;i<wipe;i++) mputc(' ',1,curs);	/* blank old chars */
   go(curs,horig,vorig);
 }
 
@@ -763,8 +757,8 @@ fprints(2,"cleared ok\n");
 
     for (i=pos;line[i];i++)		/* Wipe out all those chars */
     {					/* with spaces (so slow), */
-      mputc(' ',zout,curs);
-      if (line[i]<32 || line[i]==127) mputc(' ',zout,curs);
+      mputc(' ',1,curs);
+      if (line[i]<32 || line[i]==127) mputc(' ',1,curs);
       line[i]=EOS;
     }
     go(curs,horig,vorig);		/* restore original curs position */
@@ -788,16 +782,16 @@ void transpose(line,pos,curs)
   line[pos-1]=temp;
   if (line[pos-1]<32 || line[pos-1]==127)
   {
-    mputc('^',zout,curs);
-    mputc(line[pos-1]+64,zout,curs);
+    mputc('^',1,curs);
+    mputc(line[pos-1]+64,1,curs);
   }
-  else mputc(line[pos-1],zout,curs);
+  else mputc(line[pos-1],1,curs);
   if (line[pos]<32 || line[pos]==127)
   {
-    mputc('^',zout,curs);
-    mputc(line[pos]+64,zout,curs);
+    mputc('^',1,curs);
+    mputc(line[pos]+64,1,curs);
   }
-  else mputc(line[pos],zout,curs);
+  else mputc(line[pos],1,curs);
   if (line[pos]<32 || line[pos]==127) backward(curs);
   backward(curs);
 }
@@ -830,7 +824,7 @@ bool getuline(line,nosave,feature_off)
 {
   extern char beep[],yankbuf[];
   extern int lenprompt,wid,curr_hist,maxhist;
-  char remline[MAXLL];
+  char a,remline[MAXLL];
   int c,times=1,i,pos=0,curs[2],hist=curr_hist,
       hsave=lenprompt,vsave=0,possave=0,try=0;
   int beeplength=strlen(beep);
@@ -840,7 +834,7 @@ bool getuline(line,nosave,feature_off)
 
   while (1)
   {
-    c=getcomcmd(zin);
+    c=getcomcmd(1);
     for (;times>0;times--)
     switch(c)
     {
@@ -862,7 +856,7 @@ bool getuline(line,nosave,feature_off)
 		 else write(1,beep,beeplength);		/* else ring bell */
 		 break;
       case INT : goend(line,&pos,curs);
-		 write(fileno(zout),"\n",1);
+		 write(1,"\n",1);
 		 return(FALSE);
       case DELCH: if (line[0]==EOS && !feature_off)
 		 {
@@ -904,7 +898,7 @@ bool getuline(line,nosave,feature_off)
 		 else write(1,beep,beeplength);
 		 break;
       case FINISH: goend(line,&pos,curs);
-		 write(fileno(zout),"\n",1);
+		 write(1,"\n",1);
 		 line[pos++]=EOS;
 		 if (feature_off) return(TRUE);
 		 *nosave=strip(line);			/* process it now */
@@ -943,11 +937,11 @@ bool getuline(line,nosave,feature_off)
 		 else write(1,beep,beeplength);		/* else ring bell */
 		 break;
       case LOOP: times=0;
-		 c=getc(zin);
+		 read(0,&a,1); c=a;
 		 while(isdigit(c))
 		 {
 		   times=times*10+c-48;
-		   c=getc(zin);
+		   read(0,&a,1); c=a;
 		 }
 		 times++;	/* need to add 1 because it's dec'ed */
 		 break;		/* immediately at end of for loop */
@@ -956,8 +950,8 @@ bool getuline(line,nosave,feature_off)
 		   write(1,beep,beeplength);
 		   continue;
 		 }
-		 mputc('"',zout,curs); backward(curs);	/* literal char */
-		 c=getc(zin);
+		 mputc('"',1,curs); backward(curs);	/* literal char */
+		 read(0,&a,1); c=a;
 		 if (c)			/* don't allow EOS (null) */
 		   insert(line,pos++,c,curs);
 		 break;
@@ -995,7 +989,7 @@ bool getuline(line,nosave,feature_off)
 			      break;
      case SEARCHF : if (line[pos])		/* search forward */
 			      {
-				c=getc(zin);		/* char to search for */
+				read(0,&a,1); c=a;	/* char to search for */
 				for (i=pos+1;line[i] && c!=line[i];i++);
 				if (line[i])
 				  while (pos<i)
@@ -1010,7 +1004,7 @@ bool getuline(line,nosave,feature_off)
 			      break;
      case SEARCHB : if (pos>0)		/* search backwards */
 			      {
-				c=getc(zin);		/* char to search for */
+				read(0,&a,1); c=a;	/* char to search for */
 				for (i=pos-1;i>=0 && c!=line[i];i--);
 				if (i>=0)
 				  while (pos>i)
@@ -1035,4 +1029,3 @@ bool getuline(line,nosave,feature_off)
    times=1;
   }
 }
-

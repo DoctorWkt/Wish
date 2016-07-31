@@ -76,12 +76,12 @@
 #endif
 
 #define BADFD -2
-#define MAXARG 30
-#define MAXWORD 200
+#define MAXARG   300
+#define MAXWORD  200
 #define MAXFNAME 200
-#define MAXPL   128                    /* path length */
+#define MAXPL    128                    /* path length */
 # define MAXLL  2048
-#define MAXWL 512
+#define MAXWL    512
 # define MAXCAN 1000                    /* maximum number of candidates */
 
 
@@ -102,9 +102,9 @@ typedef enum {T_WORD,T_BAR,T_AMP,T_SEMI,T_GT,T_GTGT,T_LT, T_NL,T_EOF} TOKEN;
  */
 
 struct candidate
-	{ char *name;		/* The file's name */
-	  char *next;		/* Next field in linked list */
-	  int mode;		/* File's mode (clex), or malloc'd bool */
+	{ char *name;			/* The file's name */
+	  struct candidate *next;	/* Next field in linked list */
+	  int mode;			/* File's mode, or malloc'd bool */
 	};
 
 /* Execution */

@@ -92,12 +92,12 @@ void waitfor(pid)	/* Wait for child */
  }
 #endif
 
+#ifdef JOB
 /* Under BSD, instead of using a wait(), we merely pause(). We are woken
  * up when a signal arrives. If it was a SIGCHLD, checkjobs() caught it.
  * If it was the current job, checkjobs() will have modified the ptr or
  * the status. This is how we escape from the loop.
  */
-#ifdef JOB
 void waitfor(pid)       /* Wait for child */
  int pid;
  {

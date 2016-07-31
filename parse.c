@@ -3,27 +3,17 @@
 /* This is taken almost verbatim from `Advanced Unix Programming'
  */
 
-extern struct candidate carray[];	/* The buffer we are parsing */
-static struct candidate *curr;		/* The word we are parsing */
+char *parsebuf;		/* The buffer we are parsing */
 
-static TOKEN gettoken(word)	/* Correct and classify token */
+static TOKEN gettoken(word)	/*correct and classify token*/
  char *word;  
  {
   enum {NEUTRAL,GTGT,INQUOTE,INWORD} state=NEUTRAL;
-  int c; char *w, *x;  
+  int c; char *w;  
 
-  w=word; x=curr->name;
-  while(1)
+  w=word;
+  while((c= *(parsebuf++))!=0)
    {
-    c= *(x++);
-    if (c==0)
-     {
-      c= ' ';
-      if (curr->mode==TRUE) free(curr->name);
-      curr=curr->next;
-      if (curr==NULL) c='\n';
-      else x=curr->name;
-     }
     switch(state)
      {
       case NEUTRAL: switch(c)
@@ -44,11 +34,11 @@ static TOKEN gettoken(word)	/* Correct and classify token */
 				 continue;
 		     }
       case GTGT:    if (c=='>') return(T_GTGT);
-		    x--;
+		    parsebuf--;
 		    return(T_GT);
       case INQUOTE: switch(c)
 		     {
-		      case '\\' : *w++= *(x++);
+		      case '\\' : *w++= *(parsebuf++);
 				  continue;
 		      case '"':   *w='\0';
 				  return(T_WORD);
@@ -64,7 +54,7 @@ static TOKEN gettoken(word)	/* Correct and classify token */
 		      case '>':
 		      case ' ':
 		      case '\n':
-		      case '\t': x--;
+		      case '\t': parsebuf--;
 				 *w='\0';
 				 return(T_WORD);
 		      default:   *w++=c;
@@ -72,7 +62,7 @@ static TOKEN gettoken(word)	/* Correct and classify token */
 		     }
      }
    }
-  return(T_NL);
+  return(T_EOF);
  }
 
 
@@ -97,11 +87,14 @@ TOKEN command(waitpid,makepipe,pipefdp)	/* Do simple command */
 #define srcfd newfd.infd
 #define dstfd newfd.outfd
 
-  argc=0; srcfd=0; dstfd=1; curr=carray;
-  if (curr==NULL) return(T_EOF);
+  argc=0; srcfd=0; dstfd=1; 
   while(1)
    {
-    switch(token=gettoken(word))
+    token=gettoken(word);
+#ifdef DEBUG
+prints("Token is %d, word is %s\n",token,word);
+#endif
+    switch(token)
      {
       case T_WORD: if (argc==MAXARG)
 		     { fprints(2,"Too many args\n"); break; }

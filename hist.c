@@ -39,8 +39,8 @@ int savehist(line,histnum,max)
       return(0);			/* don't save duplicates */
 
 					/* otherwise modify the string */
-    ptr->hline=(char *) realloc (ptr->hline,(unsigned)(strlen(line)+1));
-    strcpy(ptr->hline,line);
+    free(ptr->hline);
+    ptr->hline=line;
   }
   else
     if (htop)				/* there is a history, isn't there? */
@@ -51,9 +51,7 @@ fprints(2,"nohistdup %d old %s line %s.\n",nohistdup,old->hline,line);
       if (nohistdup && !strcmp(old->hline,line))
 	return(0);			/* don't save duplicates */
       old->next=ptr=(struct histlist *) malloc((unsigned)(sizeof(struct histlist))); 
-      ptr->hline=(char *) malloc ((unsigned)(strlen(line)+1));
-      if (ptr==NULL || ptr->hline==NULL) { perror("hline"); return(0); }
-      strcpy(ptr->hline,line);
+      ptr->hline=line;
       ptr->hnum=histnum;
       ptr->next=NULL;
       while (histnum-(htop->hnum)>max)	/* Free old histories */
@@ -66,9 +64,7 @@ fprints(2,"nohistdup %d old %s line %s.\n",nohistdup,old->hline,line);
     else				/* no? well, let's make one then. */
     {
       htop=(struct histlist *) malloc ((unsigned)(sizeof(struct histlist)));
-      htop->hline=(char *) malloc ((unsigned)(strlen(line)+1));
-      if (htop==NULL || htop->hline==NULL) { perror("hline"); return(0); }
-      strcpy(htop->hline,line);
+      htop->hline=line;
       htop->hnum=histnum;
       htop->next=NULL;
     }
