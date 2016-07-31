@@ -11,11 +11,13 @@
 #define SIGTYPE void			/* Signal handlers return this type */
 
 #include <sys/types.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/time.h>
+#include <time.h>
 #include <fcntl.h>
 #include <sys/resource.h>
 #include <sys/file.h>

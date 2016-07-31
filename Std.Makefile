@@ -12,6 +12,7 @@
 #CFLAGS= -O
 #CFLAGS= -Wall
 #CFLAGS= -pg
+CFLAGS+= -D_GNU_SOURCE			# LINUX
 
 #LDFLAGS= -3
 #LDFLAGS= -i
@@ -36,6 +37,7 @@ O= o
 # the ucb universe, you may need to get some ANSI C string functions that are
 # not in libc.a. These are: strtok.o strpbrk.o strspn.o strcspn.o
 #
+#CLIB=-lncurses -ltinfo		# LINUX
 #CLIB=-lcurses			# OSX5_1_ATT GENSYSV
 #CLIB=-ltermcap			# OSX5_1_BSD GENBSD ULTRIX J386BSD0_1
 #				  SUNOS3 SUNOS4	FREEBSD_1 FREEBSD_2
