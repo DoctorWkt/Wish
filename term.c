@@ -1,15 +1,16 @@
 /* This file contains routines for setting the terminal characteristics,
  * and for getting the termcap strings.
  *
- * term.c: 40.3  8/2/93
+ * $Revision: 41.3 $ $Date: 2003/04/21 13:08:43 $
  */
 
 #include "header.h"
 
 int beeplength;			/* Strlen of beep */
+int wid;			/* The width of the screen (minus 1) */
 
  /* The termcap strings Wish uses */
-char *bs, *nd, *cl, *cd, *up, *so, *se, *beep;
+char *bs, *nd, *cl, *cd, *up, *so, *se, *wbeep;
 
 static char *termcapbuf;	/* Buffer to get termcap strings */
 
@@ -19,22 +20,21 @@ static char *termcapbuf;	/* Buffer to get termcap strings */
  * under.
  */
 
-#ifdef ATT
+#ifdef USES_TCGETA
 static struct termio tbuf, tbuf2;
 
 #endif
 
-#if defined(UCB) || defined(MINIX1_5)
+#ifdef USES_SGTTY
 static struct sgttyb tbuf, tbuf2;
 static struct tchars sbuf, sbuf2;
 
-#ifdef UCB
+# ifdef USES_MORESIG
 static struct ltchars moresigc, moresigc2;
-
+# endif
 #endif
-#endif
 
-#ifdef POSIX
+#ifdef USES_TERMIOS
 static struct termios tbuf, tbuf2;
 
 #endif
@@ -69,11 +69,11 @@ printctrl(name, str)
 #endif
 
 
-/* There are 3 versions of getstty, setcooked and setcbreak, for ATT, POSIX and
- * UCB/MINIX1_5/COHERENT
+/* There are 3 versions of getstty, setcooked and setcbreak,
+ * defined by USES_TCGETA, USES_TERMIOS and USES_SGTTY
  */
 
-#ifdef ATT
+#ifdef USES_TCGETA
 /* Getstty: Get the current terminal structures for Wish */
 void
 getstty()
@@ -110,10 +110,10 @@ setcooked()
     perror("ioctl in setcooked");
 }
 
-#endif				/* ATT */
+#endif				/* USES_TCGETA */
 
 
-#ifdef POSIX
+#ifdef USES_TERMIOS
 /* Getstty: Get the current terminal structures for Wish */
 void
 getstty()
@@ -153,10 +153,10 @@ setcooked()
     perror("cooked tcsetattr");
 }
 
-#endif				/* POSIX */
+#endif				/* USES_TERMIOS */
 
 
-#if defined(UCB) || defined(MINIX1_5)
+#ifdef USES_SGTTY
 /* Getstty: Get the current terminal structures for Wish */
 void
 getstty()
@@ -165,7 +165,7 @@ getstty()
     perror("ioctl2 in getstty");
   if (ioctl(0, TIOCGETC, &sbuf))/* get the tchars struct */
     perror("ioctl3 in getstty");
-#ifdef UCB
+#ifdef USES_MORESIG
   bcopy(&sbuf, &sbuf2, sizeof(sbuf));	/* and copy them so we can change */
   bcopy(&tbuf, &tbuf2, sizeof(tbuf));
   if (ioctl(0, TIOCGLTC, &moresigc))	/* get the ltchars struct */
@@ -201,7 +201,7 @@ setcbreak()
   sbuf2.t_eofc = (UNDEF);	/* or eof signalling */
   if (ioctl(0, TIOCSETC, &sbuf2))	/* put it back, modified */
     perror("ioctl2 scb");
-#ifdef UCB
+#ifdef USES_MORESIG
   moresigc2.t_suspc = (UNDEF);	/* no stopping */
   moresigc2.t_dsuspc = (UNDEF);	/* or delayed stopping */
   moresigc2.t_rprntc = (UNDEF);	/* or reprinting */
@@ -222,22 +222,26 @@ setcooked()
     perror("ioctl1 sd");
   if (ioctl(0, TIOCSETC, &sbuf))
     perror("ioctl2 sd");
-#ifdef UCB
+#ifdef USES_MORESIG
   if (ioctl(0, TIOCSLTC, &moresigc))	/* set ltchars struct to be default */
     perror("ioctl3 in setcooked");
 #endif
 }
 
-#endif				/* UCB or MINIX1_5 */
+#endif				/* USES_SGTTY */
 
 
 /* gettstring: Given the name of a termcap string, gets the string
  * and places it into loc. Returns 1 if ok, 0 if no string.
  * If no string, loc[0] is set to EOS.
  */
+#ifdef PROTO
+static bool gettstring(char *name, char **loc)
+#else
 static bool
 gettstring(name, loc)
   char *name, **loc;
+#endif
 {
   char bp[50], *area = bp;
 
@@ -266,7 +270,7 @@ gettstring(name, loc)
 void
 terminal()
 {
-  extern int wid, beeplength;
+  extern int beeplength;
   char *t, term[20];
 
 /* set up cursor control sequences from termcap */
@@ -284,18 +288,18 @@ terminal()
     gettstring("bc", &bs);
   if ((wid = tgetnum("co")) == -1)
     wid = 80;
-  wid--;			/* this is to eliminate unwanted auto newlines */
+  wid--;		/* this is to eliminate unwanted auto newlines */
   gettstring("cl", &cl);
   gettstring("cd", &cd);
   gettstring("nd", &nd);
   gettstring("up", &up);
   gettstring("so", &so);
   gettstring("se", &se);
-  gettstring("bl", &beep);
-  if (*beep == EOS)
+  gettstring("bl", &wbeep);
+  if (*wbeep == EOS)
     
-    beep = "\007";
-  beeplength = strlen(beep);
+    wbeep = "\007";
+  beeplength = strlen(wbeep);
 #ifdef DEBUG
   printctrl("bs", bs);
   printctrl("cl", cl);
@@ -304,7 +308,7 @@ terminal()
   printctrl("up", up);
   printctrl("so", so);
   printctrl("se", se);
-  printctrl("beep", beep);
+  printctrl("beep", wbeep);
 #endif
   free(termcapbuf);
 }

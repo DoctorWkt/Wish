@@ -1,12 +1,12 @@
 /*      Generic SysV specific includes and defines
  *
- * m_gensysv.h: 40.2  7/28/93
+ * $Revision: 41.1 $ $Date: 1995/12/29 02:10:46 $
  *
  */
 
 #define GENSYSV		/* Generic SysV machine */
 
-#define ATT
+#define USES_TCGETA
 #define VARARGS
 #define V7JOB
 #define PLONG int

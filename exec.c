@@ -1,6 +1,6 @@
 /* Execute commands
  *
- * exec.c: 40.4  8/4/93
+ * $Revision: 41.3 $ $Date: 2003/04/21 13:09:31 $
  */
 
 #include "header.h"
@@ -17,10 +17,13 @@ static struct dupstack *duptop = NULL;
  * dups them back to where they came from. Nd is used by redirect()
  * to undo any dups if an error occurs.
  */
-
+#ifdef PROTO
+static void undirect(struct dupstack *nd)
+#else
 static void 
 undirect(nd)
   struct dupstack *nd;
+#endif
 {
   int i;
   struct dupstack *d;
@@ -63,10 +66,13 @@ undirect(nd)
  * If an error occurs, we return -1, else 0. We only push a dupstack
  * if no error occurs, so we must not call undirect afterwards.
  */
+#ifdef PROTO
+static int redirect(struct rdrct newfd[3])
+#else
 static int
 redirect(newfd)
   struct rdrct newfd[3];
-
+#endif
 {
   int i, j, appnd;
   int mode, flags;
@@ -155,6 +161,7 @@ redirect(newfd)
   return (0);
 }
 
+#ifndef NO_ALIAS
 #define MAXAL	16
 static char *curr_alias[MAXAL];	/* The list of aliases we have done */
 static int adepth = 0;		/* Our current depth */
@@ -165,18 +172,26 @@ static int adepth = 0;		/* Our current depth */
  * H_BCKGND. This gets passed onto doline to indicate how to waitfor()
  * the child.
  */
+#ifdef PROTO
+static int runalias(int argc, char *argv[], int how)
+#else
 static int
 runalias(argc, argv, how)
   int argc;
   char *argv[];
-int how;
-
+  int how;
+#endif
 {
   extern int Argc, saveh, Exitstatus;
-  extern bool(*getaline) ();
   extern char **Argv;
-
+#ifdef PROTO
+  extern bool(*getaline) (uchar *line , int *nosave );
+  bool(*oldgetline) (uchar *line , int *nosave );
+#else
+  extern bool(*getaline) ();
   bool(*oldgetline) ();
+#endif
+
   int i, oldsaveh, oldargc;
   char **oldargv;
 
@@ -217,7 +232,10 @@ int how;
   else
     return (-1);
 }
+#endif	/* NO_ALIAS */
 
+
+static int bgpgrp;	/* Background process group id */
 
 /* Invoke simple command. This takes the args to pass to the executed
  * process/builtin, the list of new file descriptors, and a bitmap
@@ -250,6 +268,7 @@ int anydups;
 
   if (!(how & H_BCKGND))	/* If a foreground process */
   {
+    bgpgrp=0;			/* Reset for next bg process */
     /* Try builtins first */
     if (argc == 0 || ((i = builtin(argc, argv, &pid)) != -1))
     {
@@ -259,12 +278,14 @@ int anydups;
       return (pid);
     }
 
+#ifndef NO_ALIAS
     if ((i = runalias(argc, argv, how)) >= 0)
     { Exitstatus= i;
       if (anydups)
 	undirect(NULL);
       return (0);
     }
+#endif
   }
 
   /* Else fork/exec the process */
@@ -286,7 +307,9 @@ int anydups;
       {				/* Move process to new proc-grp if bg */
 #if defined(UCBJOB) || defined(POSIXJOB)
 #ifdef POSIXJOB
-	i = setpgid(0, 0);
+				/* First get a pgrp-id if none */
+	if (bgpgrp==0) bgpgrp=getpid();
+	i = setpgid(0, bgpgrp);
 	if (i == -1)
 	  fprints(2, "I was -1\n");
 #else
@@ -296,8 +319,10 @@ int anydups;
 #endif				/* POSIXJOB */
 #endif				/* UCBJOB || POSIXJOB */
       }
+#ifndef NO_VAR
       if (!EVupdate())
 	fatal("Can't update environment");
+#endif
       /* The fork only wants fds 0,1,2 */
 #ifdef DEBUG
       fprints(2, "The child is closing 3 to 20\n");
@@ -311,12 +336,14 @@ int anydups;
 	exit(i);
       }
 
+#ifndef NO_ALIAS
       if ((i = runalias(argc, argv, how)) >= 0)
       { 
 	if (anydups)
 	  undirect(NULL);
 	exit(i);
       }
+#endif
       /* Finally exec() the beast */
 
       execvp(argv[0], argv);
@@ -329,7 +356,9 @@ int anydups;
       fprints(2, "Just forked %s, pid %d\n", argv[0], pid);
 #endif
       /* and return the new pid */
+#ifndef NO_JOB
       addjob(pid, argv[0], how & H_BCKGND);
+#endif
 #ifdef V7JOB
 /* We can't just leave a backgrounded process as is, because it will
  * stop on the exec(), and because we won't waitfor() it, it will stay

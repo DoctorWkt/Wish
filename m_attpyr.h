@@ -1,12 +1,12 @@
 /*      OSx 5.1a, SysV Universe specific includes and defines
  *
- * m_attpyr.h: 40.3  8/2/93
+ * $Revision: 41.2 $ $Date: 1995/12/29 02:58:43 $
  *
  */
 
 #define OSX5_1_ATT	/* Pyramid under OSx 5.1a, SysV Universe */
 
-#define ATT
+#define USES_TCGETA
 #define VARARGS
 #define V7JOB
 #define PLONG int

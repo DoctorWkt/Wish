@@ -3,7 +3,7 @@
  * external routines that the shell uses. Expect to comment some of these
  * out depending upon what is already defined in your system's header files.
  *
- * proto.h: 40.8  11/22/93
+ * $Revision: 41.1 $ $Date: 1995/12/29 02:10:46 $
  */
 
 #ifdef PROTO
@@ -13,24 +13,22 @@
 #endif
 
 
-/* prints.c */
 /* Trying to use the intuitive prototypes below AND
  * allow the use of stdargs or varargs is basically
  * impossible.
  *
- * void fprints P((int fd, CONST char *fmt, ...));
- * void sprints P((char *out, CONST char *fmt, ...));
- * void prints P((CONST char *fmt, ...));
  */
-void fprints();
-void sprints();
-void prints();
-void mprint P((uchar *line , int nocr ));
+#ifndef NO_PRINTS_DEFN
+void fprints P((int fd, CONST char *fmt, ...));
+void sprints P((char *out, CONST char *fmt, ...));
+void prints P((CONST char *fmt, ...));
+#endif
 
+void mprint P((uchar *line , int nocr ));
 
 /* alias.c */
 struct val *checkalias P((char *aname ));
-bool getaliasline P((char *line , int *nosave ));
+bool getaliasline P((uchar *line , int *nosave ));
 int alias P((int argc , char *argv []));
 int unalias P((int argc , char *argv []));
 
@@ -64,7 +62,7 @@ int invoke P((int argc , char *argv [], struct rdrct newfd [], int how , int any
 /* file.c */
 bool fileopen P((char *filename , int fd ));
 void fileclose P((void ));
-bool getfileline P((char *line , int *nosave ));
+bool getfileline P((uchar *line , int *nosave ));
 int source P((int argc , char *argv []));
 
 /* hist.c */
@@ -82,7 +80,7 @@ int fg P((int argc , char *argv []));
 
 /* posixjob.c */
 void waitfor P((int pid ));
-SIGTYPE stopjob P((void ));
+SIGTYPE stopjob P((int a));
 
 /* main.c */
 void prprompt P((void ));

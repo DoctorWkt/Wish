@@ -2,7 +2,7 @@
  * stack of open fds and buffers for each file. This is to minimise the
  * overhead or read()ing, but avoiding the use of stdio.
  *
- * file.c: 40.4  8/4/93
+ * $Revision: 41.1 $ $Date: 1995/12/29 02:10:46 $
  */
 
 #include "header.h"
@@ -52,7 +52,7 @@ fileclose()
  */
 bool
 getfileline(line, nosave)
-  char *line;
+  uchar *line;
   int *nosave;
 {
   int in_line = 0;
@@ -91,10 +91,15 @@ source(argc, argv)
   int argc;
   char *argv[];
 {
-  extern bool(*getaline) ();
   extern int saveh;
-
+#ifdef PROTO
+  extern bool(*getaline) (uchar *line , int *nosave );
+  bool(*oldgetline) (uchar *line , int *nosave );
+#else
+  extern bool(*getaline) ();
   bool(*oldgetline) ();
+#endif
+
   int oldsaveh;
 
   if (argc != 2)

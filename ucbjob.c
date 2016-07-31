@@ -1,6 +1,6 @@
 /*      4.3BSD Job Control functions
  *
- * ucbjob.c: 40.3  8/2/93
+ * $Revision: 41.1 $ $Date: 1995/12/29 02:10:46 $
  *
  */
 

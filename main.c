@@ -1,9 +1,10 @@
 /* The main loop of the shell
  *
- * main.c: 40.7  8/4/93
+ * $Revision: 41.5 $ $Date: 1996/10/01 02:08:11 $
  */
 
 #include "header.h"
+char x,y,z;
 
 int Argc;			/* The number of arguments for Wish */
 char **Argv;			/* The argument list for Wish */
@@ -13,15 +14,23 @@ int saveh;			/* Should we save history? */
 static bool Loginshell=FALSE;	/* Indicates if we're a login shell */
 static struct candidate *next_word;
 
+#ifdef PROTO
+bool(*getaline) (uchar *line,int *nosave) = getuline;
+#else
 bool(*getaline) () = getuline;	/* Our input routine defaults to getuline() */
+#endif
 
 
 /* Lengthint is used by prprompt to determine the number
  * of chars in the string version of an integer; this is
  * needed so the prompt length is calculated properly.
  */
+#ifdef PROTO
+static int lengthint(int num)
+#else
 static int lengthint(num)
   int num;
+#endif
 {
   int i;
 
@@ -30,8 +39,12 @@ static int lengthint(num)
 }
 
 /* Print out the current time in a set length string */
+#ifdef PROTO
+static void printime(void)
+#else
 static void
 printime()
+#endif
 {
   long clock;
   struct tm *t;
@@ -68,10 +81,12 @@ prprompt()
 	  lenprompt++;
 	  break;
 	case '!':
+#ifndef NO_HISTORY
 	case 'h':
 	  lenprompt += lengthint(curr_hist);
 	  prints("%d", curr_hist);
 	  break;
+#endif
 	case 'd':
 	  len = strlen(EVget("cwd"));
 	  lenprompt += len;
@@ -140,8 +155,12 @@ leave_shell(how)
  * variables & the environ variables are set up. Then the termcap strings
  * are found, and then any other misc. things are done.
  */
+#ifdef PROTO
+static void setup(void)
+#else
 static void
 setup()
+#endif
 {
   extern char currdir[];
   extern struct vallist vlist;
@@ -160,12 +179,14 @@ setup()
   else
     write(2, "Can't get cwd properly\n", 23);
   setval("prompt", "% ", &vlist);	/* Set the prompt to % for now */
-  setval("Version", "2.0.39", &vlist);
+  setval("Version", "2.0.41", &vlist);
   catchsig();			/* Catch signals */
   getstty();			/* Set up the stty for Wish */
   terminal();			/* Get the termcap strings */
 
+#ifndef NO_BIND
   initbind();			/* Set the default key bindings */
+#endif
 
   argv[0] = "source";
   home= EVget("HOME");
@@ -173,7 +194,7 @@ setup()
    { argv[1]= Malloc(strlen(home) + strlen(".wishrc")+3, "setup malloc");
      sprints(argv[1],"%s/.wishrc", home);
    }
-  else argv[1] = ".wishrc";		/* Source .klamrc */
+  else argv[1] = ".wishrc";		/* Source .wishrc */
   source(2, argv);
   free(argv[1]);
   if (*Argv[0]=='-')		/* If we're a login shell */
@@ -226,7 +247,7 @@ doline(isalias)
   if (linebuf == NULL)
     fatal("Couldn't malloc linebuf\n");
 
-  while ((*getaline) (linebuf, &q) == TRUE)	/* Get a line from user */
+   while ((*getaline) (linebuf, &q) == TRUE)	/* Get a line from user */
   {
     if (q || *linebuf == EOS)
       continue;
@@ -241,8 +262,10 @@ doline(isalias)
 
     if (meta_1(linebuf, FALSE) == FALSE)
       continue;			/* Expand ! */
+#ifndef NO_HISTORY
     if (saveh)
       savehist(expline(carray), 1);	/* Save the line */
+#endif
 
 /* At this point, we need to extract pipelines
  * from the parsed line, so that we expand
@@ -272,8 +295,10 @@ doline(isalias)
 	break;
       if (term == C_DBLPIPE && Exitstatus == 0)
 	break;
+#ifndef NO_JOB
       if (saveh)
 	joblist(0, NULL);	/* print the list of jobs */
+#endif
 
     }
 

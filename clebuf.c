@@ -1,6 +1,6 @@
 /* Command Line Editor Buffer functions
  *
- * clebuf.c: 1.1  8/3/93
+ * $Revision: 41.2 $ $Date: 1996/06/14 06:24:54 $
  */
 
 #include "header.h"
@@ -13,7 +13,9 @@
 
 #define OUTSIZE 128		/* The size of the buffer */
 
+#ifndef NO_COMLINED
 extern int curs[2];
+#endif
 extern int wid;
 extern bool Msb;
 
@@ -66,10 +68,12 @@ mputc(b)
   *(outptr++) = d;		/* We mimic addbuf for 1 char */
   if (++outcnt == (OUTSIZE - 1)) flushbuf();
   if (Msb && c > 0x7f) addbuf(se);
+#ifndef NO_COMLINED
   curs[0]++;
   if (curs[0] >= wid)
   { addbuf("\n");		/* goto start of next line */
     curs[0] = curs[0] % wid;	/* hopefully gives zero */
     curs[1]++;
   }
+#endif
 }

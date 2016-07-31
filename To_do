@@ -1,0 +1,32 @@
+Things to do on Wish 2.0
+------------------------
+
+The token parsing in meta.c is pretty awful. I've come up with a much more
+elegant token parser for the shell, but I haven't merged it into the current
+code as the types of tokens have changed.
+
+I'm toying with the idea of moving alias expansion into the command line
+expansion, instead of treating it as a `builtin shell script'. This would
+simplify a lot of the code, e.g removing the isalias stuff everywhere.
+
+The redirection code and the file code is also a bit ugly. The new meta
+tokeniser will have an impact on the redirection code, and I should fix
+the file code at the same time.
+
+There are still job control flaws, mainly because trying to grok the new
+POSIX job control method gives me a headache. I need to sit down and really
+nut this one out.
+
+Ensure that NO stdio code is compiled into the shell, especially on Minix.
+This was the reason I moved to prints() from printf(). Makes the shell an
+awful lot smaller.
+
+Is the shell 8-bit clean? I should really try to use uchar everywhere.
+
+Can I use the val.c code anywhere else in the shell?
+
+Comlined still needs a full rewrite, this is the only code that is
+substantially based on the old clam code. Best to start from scratch on
+this one.
+
+$Revision: 41.1 $ $Date: 1995/12/29 04:54:28 $

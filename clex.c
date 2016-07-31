@@ -1,13 +1,12 @@
 /* Here is the declaration of the candidate array. This is used in meta.c
  * and probably in parse.c, as well as several million other places.
  *
- * clex.c: 40.5  8/11/93
+ * $Revision: 41.3 $ $Date: 2003/04/21 13:08:43 $
  */
 
 #include "header.h"
 
 struct candidate carray[MAXCAN];
-
 extern int ncand;
 static int maxlen;
 
@@ -25,17 +24,50 @@ compare(a, b)
   return (strcmp(c->name, d->name));
 }
 
+/* Addcarray adds a new node to the carray. If prev is non-null, then
+ * prev->next points to the new node. If malc is TRUE, space is malloc'd
+ * and the word copied.
+ */
+void
+addcarray(word, prev, mode, malc)
+  char *word;
+  struct candidate *prev;
+  int mode;
+  bool malc;			/* Ha ha - a play on clam :-) */
+{
+  int j;
+  struct candidate *here;
 
+  if (ncand == MAXCAN) return;
+  here = &carray[ncand];
+  if (malc && word)
+  { j = strlen(word);
+    here->name = (char *) Malloc((unsigned) (j + 2), "addcarray");
+    strcpy(here->name, word);
+  }
+  else here->name = word;
+  if (prev >= carray) prev->next = here;
+  here->next = NULL;
+  here->mode = mode;
+  ncand++;
+}
+
+
+#ifndef NO_CLEX
 /* Print out the maxlen partial match on the word, placing the result at
  * pos in the given line.
  */
+#ifdef PROTO
+static void extend(char *line, int *pos, char *word)
+#else
 static void
 extend(line, pos, word)
   char *line;
   int *pos;
   char *word;
+#endif
 {
-  extern char *beep;
+  extern char *wbeep;
   extern int beeplength;
   int i, j, nostop = 1;
   char *newword, *t;
@@ -87,8 +119,12 @@ extend(line, pos, word)
 
 /* Print out the candidates found in columns.
  */
+#ifdef PROTO
+static void colprint(void)
+#else
 static void
 colprint()
+#endif
 {
   extern int wid;
   int i, j, collength, numperline, index;
@@ -119,43 +155,19 @@ colprint()
 }
 
 
-/* Addcarray adds a new node to the carray. If prev is non-null, then
- * prev->next points to the new node. If malc is TRUE, space is malloc'd
- * and the word copied.
- */
-void
-addcarray(word, prev, mode, malc)
-  char *word;
-  struct candidate *prev;
-  int mode;
-  bool malc;			/* Ha ha - a play on clam :-) */
-{
-  int j;
-  struct candidate *here;
-
-  if (ncand == MAXCAN) return;
-  here = &carray[ncand];
-  if (malc && word)
-  { j = strlen(word);
-    here->name = (char *) Malloc((unsigned) (j + 2), "addcarray");
-    strcpy(here->name, word);
-  }
-  else here->name = word;
-  if (prev >= carray) prev->next = here;
-  here->next = NULL;
-  here->mode = mode;
-  ncand++;
-}
-
 
 
 /* Find the name of a file, given a partial word to match against. The
  * word may be an absolute path name, or a relative one. Any matches
  * against the word are added to the carray.
  */
+#ifdef PROTO
+static void findfile(char *word)
+#else
 static void
 findfile(word)
   char *word;
+#endif
 {
   extern char currdir[];
   int i, j;
@@ -226,9 +238,13 @@ findfile(word)
  * variable's value and treat it as a path.
  * Any matches against the word are added to the carray.
  */
+#ifdef PROTO
+static void finddollar(char *word)
+#else
 static void
 finddollar(word)
   char *word;
+#endif
 {
   char dir[MAXWL];
   extern struct vallist vlist;
@@ -264,23 +280,31 @@ finddollar(word)
  * Any matches against the word are added to the carray.
  */
 
+#ifdef PROTO
+static void findbuilt(char *word)
+#else
 static void
 findbuilt(word)
   char *word;
+#endif
 {
   extern struct builptr buillist[];
+#ifndef NO_ALIAS
   extern struct vallist alist;
+#endif
   int h, i, j;
   struct val *v;
 
   i = strlen(word);
 
+#ifndef NO_ALIAS
   for (v = alist.head; v; v = v->next)
     if (!strncmp(v->name, word, i))
     { j = strlen(v->name);
       addcarray(v->name, NULL, 0700, TRUE);
       if (j > maxlen) maxlen = j;
     }
+#endif
 
   for (h = 0; buillist[h].name; h++)			/* Then the builtins */
     if (i == 0 || !strncmp(buillist[h].name, word, i))
@@ -296,9 +320,13 @@ findbuilt(word)
  *
  * This now uses the tilde list.
  */
+#ifdef PROTO
+static void findpasswd(char *word)
+#else
 static void
 findpasswd(word)
   char *word;
+#endif
 {
   extern struct vallist tlist;
   struct val *t;
@@ -343,9 +371,13 @@ findpasswd(word)
 /* Find the name of a file by looking through $PATH.
  * Any matches against the word are added to the carray.
  */
+#ifdef PROTO
+static void findbin(char *word)
+#else
 static void
 findbin(word)
   char *word;
+#endif
 {
   int i;
   char word2[MAXWL];
@@ -391,7 +423,7 @@ complete(line, pos, how)
   int *pos;
   bool how;
 {
-  extern char *beep, yankbuf[];
+  extern char *wbeep, yankbuf[];
   extern int beeplength;
   extern char *wordterm;
   char *b, *yankword = yankbuf;
@@ -438,3 +470,4 @@ complete(line, pos, how)
   }
   while ((--ncand) >= 0) free(carray[ncand].name);
 }
+#endif	/* NO_CLEX */

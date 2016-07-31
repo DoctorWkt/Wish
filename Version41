@@ -1,0 +1,7 @@
+Version 41:
+This version isn't really documented very well. I think I moved the code
+from SCCS to RCS after porting it back to FreeBSD 1 and Minix 1.7, so
+the code shouldn't be radically different from the last version 40. From
+now on, I will put `closed on [date]' on the version number in this file.
+Added lots of ifdefs to turn off functionality; this might help for when
+we do regression testing. Now I need a proper `ifdef' remover program :-)

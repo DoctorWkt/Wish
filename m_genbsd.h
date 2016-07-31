@@ -1,12 +1,13 @@
 /*      Generic BSD 4.x specific includes and defines
  *
- * m_genbsd.h: 40.4  8/2/93
+ * $Revision: 41.1 $ $Date: 1995/12/29 02:10:46 $
  *
  */
 
 #define GENBSD		/* Generic BSD 4.x machine */
 
-#define UCB
+#define USES_SGTTY
+#define USES_MORESIG
 #define UCBJOB
 #define VARARGS
 

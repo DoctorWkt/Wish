@@ -2,7 +2,7 @@
  * We only use the ctrl chars, so that people can use
  * the editor with 8-bit ascii characters.
  *
- * comlined.c: 40.5  8/4/93
+ * $Revision: 41.3 $ $Date: 2003/04/21 13:08:43 $
  */
 
 #include "header.h"
@@ -56,10 +56,32 @@
 
 #define isctrl(x) (((x+1)&0x7f)<33)
 
+/* Strip takes the line, and removes leading spaces. If the first non-space
+ * character is a hash, it returns 1. This should also remove trailing
+ * comments; I might just move the whole thing into meta_1.
+ */
+#ifdef PROTO
+static int strip(uchar *line)
+#else
+static int
+strip(line)
+  uchar *line;
+#endif
+{
+  int i, nosave = 0;
+
+  for (i = 0; line[i] == ' '; i++);
+  if (line[i] == '#')
+  { nosave = 1; i++; }
+  if (i) strcpy((char *) line, (char *) &line[i]);
+  return (nosave);
+}
+
 bool Msb;			/* Is var Msb defined? */
+#ifndef NO_COMLINED
 uchar yankbuf[512];		/* Buffer used when yanking words */
 uchar *wordterm;		/* Characters that terminate words */
-int wid;			/* The width of the screen (minus 1) */
+extern int wid;			/* The width of the screen (minus 1) */
 
 /* A quick blurb on the curs[] structure.
  * Curs[0] holds the column pos'n of the cursor, curs[1] holds the # of
@@ -70,9 +92,13 @@ int curs[2];
 
 
 /* Go moves the cursor to the position (vert,hor), and updates the cursor */
+#ifdef PROTO
+static void go(int hor, int vert)
+#else
 static void
 go(hor, vert)
   int hor, vert;
+#endif
 {
   extern char *bs, *nd, *up;
   int hdiff, vdiff;
@@ -111,8 +137,12 @@ go(hor, vert)
 }
 
 /* Backward: Move the cursor backwards one character */
+#ifdef PROTO
+static void backward(void)
+#else
 static void
 backward()
+#endif
 {
   extern char *bs;
 
@@ -121,8 +151,12 @@ backward()
 }
 
 /* Forward: Move the cursor forwards one character */
+#ifdef PROTO
+static void forward(void)
+#else
 static void
 forward()
+#endif
 {
   extern char *nd;
 
@@ -196,10 +230,14 @@ Show(line, pos, let, flag)
 
 
 /* I'm not exactly sure what copyback() does yet - Warren */
+#ifdef PROTO
+static void copyback(uchar *line, int pos, int count)
+#else
 static void
 copyback(line, pos, count)
   uchar *line;
   int pos, count;
+#endif
 {
   uchar c;
   int i, horig, vorig, wipe;
@@ -262,10 +300,14 @@ copyback(line, pos, count)
  *
  * Although pos is passed as a pointer, only forword() updates the value.
  */
+#ifdef PROTO
+static void nextword(uchar *line, int *p, int flag)
+#else
 static void
 nextword(line, p, flag)
   uchar *line;
   int *p, flag;
+#endif
 {
   int inword = 0, l = 1, pos = *p, charcount = 0;
   uchar c;
@@ -364,10 +406,14 @@ prevword(line, p, flag)
 
 
 /* Clrline: The line from the position pos is cleared */
+#ifdef PROTO
+static void clrline(uchar *line, int pos)
+#else
 static void
 clrline(line, pos)
   uchar *line;
   int pos;
+#endif
 {
   extern char *cd;
   int i, horig, vorig;
@@ -392,10 +438,14 @@ clrline(line, pos)
 }
 
 /* Transpose transposes the characters at pos and pos-1 */
+#ifdef PROTO
+static void transpose(uchar *line, int pos)
+#else
 static void
 transpose(line, pos)
   uchar *line;
   int pos;
+#endif
 {
   uchar temp;
 
@@ -418,23 +468,6 @@ transpose(line, pos)
   backward();
 }
 
-/* Strip takes the line, and removes leading spaces. If the first non-space
- * character is a hash, it returns 1. This should also remove trailing
- * comments; I might just move the whole thing into meta_1.
- */
-static int
-strip(line)
-  uchar *line;
-{
-  int i, nosave = 0;
-
-  for (i = 0; line[i] == ' '; i++);
-  if (line[i] == '#')
-  { nosave = 1; i++; }
-  if (i) strcpy((char *) line, (char *) &line[i]);
-  return (nosave);
-}
-
 
 /* Getuline gets a line from the user, returning a flag if the line
  * should be saved.
@@ -444,13 +477,13 @@ getuline(line, nosave)
   uchar *line;
   int *nosave;
 {
-  extern char *beep, *cl, *cd;
+  extern char *wbeep, *cl, *cd;
   extern uchar bindbuf[], *bindptr, CLEmode;
   extern int errno, lenprompt, curr_hist;
   uchar a;
   int c, times = 1, i, pos = 0, hist = curr_hist,
 	hsave = lenprompt, vsave = 0, possave = 0;
-  int beeplength = strlen(beep);
+  int beeplength = strlen(wbeep);
 
   memset(line, 0, MAXLL);
   wordterm = (uchar *) EVget("Wordterm");	/* Determine the word
@@ -559,6 +592,7 @@ getuline(line, nosave)
 	  *nosave = strip(line);/* process it now */
 	  if (line[0] != EOS) return (TRUE);
 	  else return (FALSE);
+#ifndef NO_HISTORY
 	case NEXTHIST:
 	  if (hist < curr_hist) /* put next hist in line buf */
 	  { loadhist((char *) line, ++hist);
@@ -573,6 +607,7 @@ getuline(line, nosave)
 	      (void) savehist((char *) line, 0);
 	    loadhist((char *) line, --hist);
 	  }
+#endif
 	case REDISP:
       redisp:
 	  go(lenprompt, 0);
@@ -719,3 +754,22 @@ getuline(line, nosave)
     times = 1;
   }
 }
+#else	/* NO_COMLINED */
+bool
+getuline(line, nosave)
+  uchar *line;
+  int *nosave;
+{
+  int i;
+
+  prprompt();			/* Print out our prompt */
+  for (i=0; i<MAXLL; i++) {
+    read(0, &line[i], 1);	/* Get a char */
+    if (line[i]=='\n') break;
+  }
+  line[i] = EOS;
+  *nosave = strip(line);/* process it now */
+  if (line[0] != EOS) return (TRUE);
+  else return (FALSE);
+}
+#endif

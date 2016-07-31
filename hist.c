@@ -1,11 +1,12 @@
 /* The command history is stored as a singly linked list, each node holding
  * a command, its history number, and a pointer to the next node.
  *
- * hist.c: 40.5  8/2/93
+ * $Revision: 41.2 $ $Date: 1996/06/14 06:24:54 $
  */
 
 #include "header.h"
 
+#ifndef NO_HISTORY
 static struct vallist hlist =	/* The history list */
 	{ NULL, NULL};
 int curr_hist = 1;		/* The current history number */
@@ -82,9 +83,13 @@ history(argc, argv)
 /* Getnumhist returns the command line with the given history number.
  * If none exists, NULL is returned.
  */
+#ifdef PROTO
+static char * getnumhist(int histnum)
+#else
 static char *
 getnumhist(histnum)
   int histnum;
+#endif
 {
   struct val *ptr;
 
@@ -143,3 +148,4 @@ gethist(event)
     if (ptr) return (ptr->name); else return(NULL);
   }
 }
+#endif	/* NO_HISTORY */

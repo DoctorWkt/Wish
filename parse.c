@@ -1,6 +1,6 @@
 /* Parsing the input file
  *
- * parse.c: 40.1  7/27/93
+ * $Revision: 41.1 $ $Date: 1995/12/29 02:10:46 $
  */
 
 #include "header.h"
@@ -20,10 +20,14 @@ static struct candidate *pcurr;	/* A ptr to the word we are parsing */
  * If 0, word points to a string that holds a normal word. This is guaranteed
  * not to be clobbered until we get back out to main().
  */
+#ifdef PROTO
+static int gettoken(char **word, int *fd)
+#else
 static int 
 gettoken(word, fd)
   char **word;
   int *fd;
+#endif
 {
   int mode;
 

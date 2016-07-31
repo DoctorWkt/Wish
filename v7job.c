@@ -1,16 +1,17 @@
 /*      7th Edition Job Control functions
  *
- * v7job.c: 40.3  8/2/93
+ * $Revision: 41.1 $ $Date: 1995/12/29 02:10:46 $
  *
  */
-
+#ifndef WIFSTOPPED
 #define WIFSTOPPED(x)   (((x) & 0xFF) == 0x7F)	/* As per my Version7 manual */
 #define WIFSIGNALED(x)  ((x) & 0xFF)
 #define WIFEXITED(x)    (((x) & 0xFF) == 0)
-#define WIFCORE(x)	 ((x) & 0x80)
 #define WEXITSTATUS(x)	 ((x) >> 8)
 #define WTERMSIG(x)	 ((x) & 0xFF)
 #define WSTOPSIG(x)	 ((x) >> 8)
+#endif
+#define WIFCORE(x)	 ((x) & 0x80)
 #define WRUNFG(x)	 ((x) == RUNFG)
 #define WRUNBG(x)	 ((x) == RUNBG)
 
@@ -116,10 +117,13 @@ waitfor(pid)
   }
 }
 
-
+#ifdef PROTO
+static void bgstuff(int pid)
+#else
 static void
 bgstuff(pid)
   int pid;
+#endif
 {
   struct job *ptr;
 
@@ -131,10 +135,13 @@ bgstuff(pid)
     { ptr->STATUS = RUNBG; currentjob= ptr; }
 }
 
-
+#ifdef PROTO
+static int fgstuff(int pid)
+#else
 static int
 fgstuff(pid)
   int pid;
+#endif
 {
   struct job *ptr;
 

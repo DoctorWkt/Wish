@@ -1,6 +1,6 @@
 /* Functions dealing with lists of values
  *
- * val.c: 1.1  7/27/93
+ * $Revision: 41.1 $ $Date: 1995/12/29 02:10:46 $
  */
 
 #include "header.h"

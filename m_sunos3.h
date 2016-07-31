@@ -1,12 +1,13 @@
 /*      Sun OS 3.x specific includes and defines
  *
- * m_sunos3.h: 40.3  7/28/93
+ * $Revision: 41.1 $ $Date: 1995/12/29 02:10:46 $
  *
  */
 
 #define SUNOS3		/* Sun OS 3.x */
 
-#define UCB
+#define USES_SGTTY
+#define USES_MORESIG
 #define UCBJOB
 #define VARARGS
 

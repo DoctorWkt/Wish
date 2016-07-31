@@ -1,10 +1,25 @@
 /* Definitions of all the various names and macros that we need to
  * compile Wish.
  *
- * header.h: 40.5  8/4/93
+ * $Revision: 41.3 $ $Date: 2003/04/21 13:08:43 $
  */
 
 #include "machine.h"
+
+/* These defines turn off some of the capabilities
+ * of the shell. They are mainly used for finding
+ * the location of bugs.
+ */
+#undef NO_ALIAS 			/* No alias functions */
+#undef NO_JOB				/* No job functions */
+#undef NO_HISTORY			/* No history stuff */
+#undef NO_TILDE 			/* No tilde stuff */
+#undef NO_VAR				/* No variables */
+#undef NO_COMLINED			/* No command line editor */
+#ifdef NO_COMLINED
+# define NO_CLEX			/* No command line extensions */
+# define NO_BIND			/* No key bindings */
+#endif
 
 #if defined(__STDC__) && __STDC__ && !defined(MINIX1_5)
 # define PROTO
@@ -51,7 +66,9 @@
 #undef  FALSE
 #define TRUE  1
 #define FALSE 0
+#if (!defined(FREEBSD_4))
 typedef int bool;		/* Must be int as we pass bools as f'n args */
+#endif
 typedef unsigned char uchar;	/* CLE uses unsigned chars throughout */
 
 /* We use the following when debugging malloc/free */
@@ -168,7 +185,7 @@ struct rdrct {
 #define show(a,c)		(void)Show(a,0,0,2)
 #define goend(a,b)		Show(a,b,0,3)
 #define yankprev(line,pos)	prevword(line,&pos,2)
-#define Beep			write(1,beep,beeplength)
+#define Beep			write(1,wbeep,beeplength)
 
 
 /* Builtins
@@ -179,7 +196,11 @@ struct rdrct {
 
 struct builptr {
         char *name;
+#ifdef PROTO
+        int  (*fptr)(int argc, char *argv[]);
+#else
         int  (*fptr)();
+#endif
 	};
 
 #include "proto.h"

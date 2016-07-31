@@ -1,12 +1,13 @@
 /*      OSx 5.1a, BSD Universe specific includes and defines
  *
- * m_bsdpyr.h: 40.4  8/2/93
+ * $Revision: 41.1 $ $Date: 1995/12/29 02:10:46 $
  *
  */
 
 #define OSX5_1_BSD 	/* Pyramid OSx 5.1a, BSD Universe */
 
-#define UCB
+#define USES_SGTTY
+#define USES_MORESIG
 #define UCBJOB
 #define USES_DIRECT	/* Uses struct direct, not struct dirent */
 #define USES_GETWD	/* Uses getwd(), not getcwd() */

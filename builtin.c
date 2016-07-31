@@ -1,41 +1,60 @@
 /* This file does builtins
  *
- * builtin.c: 40.4  8/2/93
+ * $Revision: 41.2 $ $Date: 1996/06/14 06:24:54 $
  */
 
 #include "header.h"
 
-static int echo(),  Cd();
+#ifdef PROTO
+static int Echo(int argc, char *argv[]),  Cd(int argc, char *argv[]);
+static int Tilde(int argc, char *argv[]), Untilde(int argc, char *argv[]);
+static int Exit(int argc, char *argv[]),  Exec(int argc, char *argv[]);
+static int Umask(int argc, char *argv[]);
+#else
+static int Echo(),  Cd();
 static int Tilde(), Untilde();
 static int Exit(),  Exec();
 static int Umask();
+#endif
 
 struct builptr buillist[] = {
   {"cd", Cd},
-  {"echo", echo},
-  {"shift", shift},
-  {"export", export},
-  {"history", history},
-  {"bind", Bind},
-  {"unbind", unbind},
-  {"unexport", unset},
-  {"unset", unset},
-  {"set", set},
-  {"setenv", set},
-  {"source", source},
-  {"alias", alias},
-  {"unalias", unalias},
-  {"tilde", Tilde},
-  {"untilde", Untilde},
+  {"echo", Echo},
   {"exit", Exit},
   {"exec", Exec},
+  {"umask", Umask},
+  {"source", source},
+#ifndef NO_BIND
+  {"bind", Bind},
+  {"unbind", unbind},
+#endif
+#ifndef NO_HISTORY
+  {"history", history},
+#endif
+#ifndef NO_VAR
+  {"export", export},
+  {"unexport", unset},
+  {"set", set},
+  {"unset", unset},
+  {"setenv", set},
+  {"shift", shift},
+#endif
+#ifndef NO_ALIAS
+  {"alias", alias},
+  {"unalias", unalias},
+#endif
+#ifndef NO_TILDE
+  {"tilde", Tilde},
+  {"untilde", Untilde},
+#endif
+#ifndef NO_JOB
 #if defined(UCBJOB) || defined(POSIXJOB) || defined(V7JOB)
   {"bg", bg},
   {"fg", fg},
 #endif
   {"jobs", joblist},
   {"kill", Kill},
-  {"umask", Umask},
+#endif
   {NULL, NULL}};
 
 
@@ -66,7 +85,7 @@ Exec(argc, argv)
 }
 
 static int 
-echo(argc, argv)
+Echo(argc, argv)
   int argc;
   char *argv[];
 {
@@ -126,6 +145,7 @@ Cd(argc, argv)
 }
 
 
+#ifndef NO_TILDE
 /* Tilde is a builtin which associates a dir name
  * with a shorthand for that dir.
  * If called with -l, print out all the passwd file too.
@@ -197,6 +217,7 @@ Untilde(argc, argv)
       prints("No such shorthand: %s\n", argv[i]);
   return (0);
 }
+#endif
 
 
 static int Umask(argc,argv)

@@ -2,7 +2,7 @@
  * parsing of the command line, and the expansion of the metacharacters
  * ' " ` \ $ ~ * ? and [
  *
- * meta.c: 40.4  8/4/93
+ * $Revision: 41.2 $ $Date: 1996/06/14 06:24:54 $
  */
 
 #include "header.h"
@@ -19,7 +19,11 @@ struct candidate *wordlist;	/* The list of words for the parser */
 static int Mode;		/* Used by star */
 static char *qline;		/* ``'d line from backquot */
 
+#ifdef PROTO
+static int matchdir(char *directory, char *pattern);
+#else
 static int matchdir();
+#endif
 #ifdef DEBUG
 static void listcarray();
 #endif
@@ -30,10 +34,13 @@ static void listcarray();
  * arg accumdir/string to find further matches. Match also adds each match
  * into the matches array given above.
  */
-static
-int
+#ifdef PROTO
+static int match(char *string, char *pattern, char *accumdir)
+#else
+static int
 match(string, pattern, accumdir)
   char *string, *pattern, *accumdir;
+#endif
 {
   char c, *findex, *pindex, *fmatch, *pmatch, rempat[MAXWL], where[MAXPL];
   int i, mismatch, found, star;
@@ -175,10 +182,13 @@ match(string, pattern, accumdir)
  * number. Note that this may be recursive, as it calls match(), which calls
  * matchdir().
  */
-static
-int
+#ifdef PROTO
+static int matchdir(char *directory, char *pattern)
+#else
+static int
 matchdir(directory, pattern)
   char *directory, *pattern;
+#endif
 {
   DIR *dirp;
 
@@ -210,11 +220,14 @@ matchdir(directory, pattern)
     return (NX_ERR);
 }
 
-
+#ifdef PROTO
+static void finddir(char *word, char *dir)
+#else
 static
 void
 finddir(word, dir)
   char *word, *dir;
+#endif
 {
   char c;
   int i = 0, j, l = 1;
@@ -245,6 +258,7 @@ finddir(word, dir)
 }
 
 
+#ifndef NO_TILDE
 /* Tilde takes the word beginning with a ~, and returns the word with the
  * first part replaced by the directory name. If ~/, we use $HOME
  * e.g ~fred -> /u1/staff/fred
@@ -302,13 +316,18 @@ tilde(word, dir)
     strcat(dir, a);
   }
 }
+#endif
 
 /* Dollar expands a variable. It takes a pointer to a candidiate,
  * and replaces it with the variable's value.
  */
+#ifdef PROTO
+static void dollar(struct candidate *cand)
+#else
 static void
 dollar(cand)
   struct candidate *cand;
+#endif
 {
   extern int Exitstatus, Argc;
   extern char **Argv;
@@ -645,10 +664,14 @@ listcarray()
 /* Addword is used by Meta_1 to add a word into the carray list.
  * This is where history is expanded.
  */
+#ifdef PROTO
+static void addword(char *string, int mode)
+#else
 static void
 addword(string, mode)
   char *string;
   int mode;
+#endif
 {
   char *b;
 
@@ -657,6 +680,7 @@ addword(string, mode)
     if (*string == EOS)
       return;
 
+#ifndef NO_HISTORY
     /* Find any history and retrieve it */
     if ((mode & (C_QUOTE | C_BACKQUOTE | C_DOLLAR | C_CURLY)) == 0)
       if ( *string == '!' && (b = gethist(++string)) != NULL)
@@ -664,6 +688,7 @@ addword(string, mode)
       meta_1(b, FALSE);		/* Expand it too */
       return;
     }
+#endif
     /* mode &= ~FALSE;		I have NO idea what this does! */
   }
   addcarray(string, &carray[ncand - 1], mode, mode & TRUE);
@@ -671,9 +696,13 @@ addword(string, mode)
 
 
 /* Star expands * ? and [] in the carray */
+#ifdef PROTO
+static void star(struct candidate *curr)
+#else
 static void
 star(curr)
   struct candidate *curr;
+#endif
 {
   char dir[MAXWL];
   struct candidate *a;
@@ -707,10 +736,14 @@ star(curr)
 
 /* Getbackqline is called when backquot forks to run a `command`.
  */
+#ifdef PROTO
+static bool getbackqline( uchar *line, int *nosave)
+#else
 static bool
 getbackqline(line, nosave)
-  char *line;
+  uchar *line;
   int *nosave;
+#endif
 {
   *nosave = 0;
   if (qline)
@@ -724,11 +757,19 @@ getbackqline(line, nosave)
 }
 
 /* Backquot expands backquotes */
+#ifdef PROTO
+static void backquot(struct candidate *curr)
+#else
 static void
 backquot(curr)
   struct candidate *curr;
+#endif
 {
+#ifdef PROTO
+  extern bool(*getaline) (uchar *line , int *nosave );
+#else
   extern bool(*getaline) ();
+#endif
   extern int saveh;
   struct candidate *first;
   int term, base;
@@ -948,9 +989,13 @@ meta_1(old, mustmalc)
 /* Joinup concatenates two carray elements together. The following pointers
  * must be non-null: curr, curr->next, curr->name, curr->next->name.
  */
+#ifdef PROTO
+static void joinup(struct candidate *curr)
+#else
 static void
 joinup(curr)
   struct candidate *curr;
+#endif
 {
   char *a;
 
@@ -979,6 +1024,7 @@ meta_2()
     if (a == NULL || curr->mode & C_QUOTE)
      continue;
 
+#ifndef NO_TILDE
     if (*a == '~')		/* If a ~ */
     {
       tilde(a, tildir);		/* expand it too */
@@ -994,6 +1040,7 @@ meta_2()
 	curr->mode = TRUE | C_SPACE;
       }
     }
+#endif
 
     if (curr->mode & C_DOLLAR)	/* If it has a $ */
       dollar(curr);		/* expand it */

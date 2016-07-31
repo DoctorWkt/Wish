@@ -1,6 +1,6 @@
 /*	POSIX Job Control functions
  *
- * posixjob.c: 40.3  8/2/93
+ * $Revision: 41.2 $ $Date: 1996/06/14 06:24:54 $
  *
  */
 
@@ -73,11 +73,13 @@ waitfor(pid)
 	   kill(wpid, SIGCONT);		/* Wake the child up first - waah! */
 	   continue;
 	 }
+#ifndef NO_JOB
     thisjob = findjob(wpid);
     if (thisjob == NULL)
       continue;
     thisjob->status = status;
     thisjob->changed = TRUE;
+#endif
     if (pid == wpid)
       return;
   }
@@ -88,7 +90,8 @@ waitfor(pid)
  * to exit, and thus waitfor() will return.
  */
 SIGTYPE
-stopjob()
+stopjob(a)
+ int a;
 {
   signal(SIGTSTP, stopjob);
 #ifdef DEBUG
@@ -115,8 +118,10 @@ bgstuff(pid)
   fprints(2,"About to SIGCONT %d\n", pid);
 #endif
   kill(pid, SIGCONT);
+#ifndef NO_JOB
   ptr = findjob(pid);
   if (ptr) { ptr->STATUS = RUNBG; currentjob= ptr; }
+#endif
 }
 
 
@@ -124,25 +129,20 @@ static int
 fgstuff(pid)
   int pid;
 {
-  int pgrp;
 
 /* Under UCBJOB and POSIXJOB, we don't try & bring the pid into our
  * pgrp, that doesn't work. Instead, we move the terminal
  * over to that pgrp, and move ourselves to that pgrp as well.
  */
-  pgrp = getpgrp(pid);		/* Determine if job's pgrp != ours */
-  if (pgrp == pid)
-  {
-    if (tcsetpgrp(0, pgrp) == -1)	/* Move the terminal to that pgrp */
+    if (tcsetpgrp(0, pid) == -1)	/* Move the terminal to that pgrp */
     {
       perror("fg tcsetpgrp");
       return (1);
     }
-    if (setpgid(0, pgrp) == -1)	/* Set shell's process group to the pid's */
+    if (setpgid(0, pid) == -1)	/* Set shell's process group to the pid's */
     {
       perror("fg setpgid");
       return (1);
     }
-  }
  return(0);
 }

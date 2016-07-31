@@ -3,7 +3,7 @@
  * job control using ptrace(). If none are defined, we simulate job control
  * as best we can.
  *
- *  job.c: 39.4  4/14/92
+ * $Revision: 41.1 $ $Date: 1995/12/29 02:10:46 $
  */
 
 #include "header.h"
@@ -87,9 +87,13 @@ findjob(pid)
 
 
 /* Given a job number, return it's process id */
+#ifdef PROTO
+static int pidfromjob(int jobno)
+#else
 static int
 pidfromjob(jobno)
   int jobno;
+#endif
 {
   struct job *ptr;
 

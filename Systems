@@ -1,0 +1,12 @@
+Wish 2.0 has been compiled on the following systems:
+
+    System	CFLAGS	LDFLAGS	 Compiler  DEFINES     CLIB	machine.h
+----------------------------------------------------------------------------
+FreeBSD 1.1.5.1	 -Wall		 gcc 2.4.5	    -ltermcap	m_freebsd1.h
+FreeBSD 2.0.5	 -Wall		 gcc 2.6.3	    -ltermcap	m_freebsd2.h
+Linux 2.x (ELF)	 -Wall		 gcc 2.7.0  	    -ltermcap   m_linux2.h
+Minix 1.7.1 i86	 -m	 -i	 ACK Ansi			m_minix1.7.h
+Solaris 2.4	 -Wall		 gcc 2.6.3  	    -ltermcap   m_solaris.h
+SunOS 4.1.4	 -Wall		 gcc 2.6.3	    -ltermcap   m_sunos4.h
+
+$Revision: 41.5 $ $Date: 1996/06/19 02:47:18 $

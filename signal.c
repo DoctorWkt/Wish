@@ -1,7 +1,7 @@
 /* Most of the functions that handle signals are kept in this file.
  * Exceptions are some signal() calls done in job.c
  *
- * signal.c: 40.3  7/28/93
+ * $Revision: 41.1 $ $Date: 1995/12/29 02:10:46 $
  */
 
 #include "header.h"
@@ -9,9 +9,13 @@
 /* Graceful is set to catch most of the unused signals in Wish. All it
  * does is print out an error message and exit.
  */
+#ifdef PROTO
+static SIGTYPE graceful(int sig)
+#else
 static SIGTYPE 
 graceful(sig)
   int sig;
+#endif
 {
   extern char *signame[];
 

@@ -1,6 +1,6 @@
 /*      COHERENT specific includes and defines
  *
- * m_coherent.h: 40.2  7/28/93
+ * $Revision: 41.1 $ $Date: 1995/12/29 02:10:46 $
  *
  */
 

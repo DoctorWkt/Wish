@@ -1,11 +1,12 @@
-/* This file contains functions relevant to aliases, including creation 
- * in two ways, listing, interpreting.
+/* This file contains functions relevant to aliases, including alias
+ * creation in two ways, listing, interpreting.
  *
- * alias.c: 40.5  8/11/93
+ * $Revision: 41.2 $ $Date: 1996/06/14 06:24:54 $
  */
 
 #include "header.h"
 
+#ifndef NO_ALIAS
 struct vallist alist=		/* The list of aliases */
 	{ NULL, NULL};
 
@@ -26,7 +27,7 @@ struct val *checkalias(aname)
  * It depends on having aline initialised correctly.
  */
 bool getaliasline(line, nosave)
- char *line;
+ uchar *line;
  int *nosave;
  {
 
@@ -69,3 +70,4 @@ int unalias(argc,argv)
     searchval(&alist,argv[i],FALSE,FALSE);
   return(0);
 }
+#endif

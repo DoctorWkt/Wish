@@ -6,8 +6,9 @@
  *
  * These routines were derived from the prints routine in Minix 1.5.
  *
- * prints.c: 40.3  8/2/93
+ * $Revision: 41.2 $ $Date: 2003/04/21 13:09:53 $
  */
+#define NO_PRINTS_DEFN
 #include "header.h"
 
 /* If your compiler/system supports one of the following,
@@ -17,6 +18,9 @@
 #include <stdarg.h>
 #endif
 #ifdef VARARGS
+#ifdef va_start
+# undef va_start
+#endif
 #include <varargs.h>
 #endif
 
@@ -35,11 +39,15 @@ static char Intbuf[MAXDIG];
 static int Out;
 static char *Dest;
 
+#ifdef PROTO
+static void _itoa(char *p, unsigned int num, int radix)
+#else
 static void 
 _itoa(p, num, radix)
   char *p;
   unsigned int num;
   int radix;
+#endif
 {
   int i;
   char *q;
@@ -52,7 +60,7 @@ _itoa(p, num, radix)
     if (i > '9')
       i += 'A' - '0' - 10;
     *--q = i;
-  } while (num = (num / radix));
+  } while ((num = (num / radix)));
   i = p + MAXDIG - q;
   do
     *p++ = *q++;
@@ -60,57 +68,65 @@ _itoa(p, num, radix)
   *p = 0;
 }
 
+#ifdef PROTO
+static void _put(char c)
+#else
 static void 
 _put(c)
   char c;
+#endif
 {
   if (Bufp < &Buf[TRUNC_SIZE])
     *Bufp++ = c;
 }
 
+#ifdef PROTO
+static void printvoid(char *str, va_list ap)
+#else
 static void 
-printvoid(S, ap)
-  char *S;
+printvoid(str, ap)
+  char *str;
   va_list ap;
+#endif
 {
   int w;
   int k, x, radix;
   char *p, *p1, c, fillchar;
 
   Bufp = Buf;
-  while (*S != '\0')
+  while (*str != '\0')
   {
-    if (*S != '%')
+    if (*str != '%')
     {
-      _put(*S++);
+      _put(*str++);
       continue;
     }
     w = 0;
     fillchar = ' ';
-    S++;
-    while (*S >= '0' && *S <= '9')
+    str++;
+    while (*str >= '0' && *str <= '9')
     {
-      if (*S == '0' && !w)
+      if (*str == '0' && !w)
 	fillchar = '0';
-      w = 10 * w + (*S - '0');
-      S++;
+      w = 10 * w + (*str - '0');
+      str++;
     }
 
-    switch (*S)
+    switch (*str)
     {
       case 'c':
 	k = va_arg(ap, int);
 	_put(k);
-	S++;
+	str++;
 	continue;
       case 's':
 	p = va_arg(ap, char *);
 	p1 = p;
-	while (c = *p++)
+	while ((c = *p++))
 	  _put(c);
 	for (x = strlen(p1); w > x; w--)
 	  _put(fillchar);
-	S++;
+	str++;
 	continue;
       case 'x':
 	radix = 16;
@@ -122,16 +138,16 @@ printvoid(S, ap)
 	radix = 8;
     printnum:
 	x = va_arg(ap, int);
-	S++;
+	str++;
 	_itoa(Intbuf, x, radix);
 	p = Intbuf;
 	for (x = strlen(p); w > x; w--)
 	  _put(fillchar);
-	while (c = *p++)
+	while ((c = *p++))
 	  _put(c);
 	continue;
       default:
-	_put(*S++);
+	_put(*str++);
 	continue;
     }
 
@@ -140,7 +156,7 @@ printvoid(S, ap)
   if (Out == -1)
   {
     *Bufp++ = 0;
-#ifdef UCB
+#ifdef USES_BCOPY
     bcopy(Buf, Dest, (int) (Bufp - Buf));
 #else
     memcpy(Dest, Buf, (int) (Bufp - Buf));
@@ -159,12 +175,12 @@ fprints(va_alist)
 va_dcl
 {
   va_list argptr;
-  char *S;
+  char *str;
 
   va_start(argptr);
   Out = va_arg(argptr, int);
-  S = va_arg(argptr, char *);
-  printvoid(S, argptr);
+  str = va_arg(argptr, char *);
+  printvoid(str, argptr);
   va_end(argptr);
 }
 /* VARARGS */
@@ -173,13 +189,13 @@ sprints(va_alist)
 va_dcl
 {
   va_list argptr;
-  char *S;
+  char *str;
 
   va_start(argptr);
   Dest = va_arg(argptr, char *);
   Out = -1;
-  S = va_arg(argptr, char *);
-  printvoid(S, argptr);
+  str = va_arg(argptr, char *);
+  printvoid(str, argptr);
   va_end(argptr);
 }
 /* VARARGS */
@@ -188,12 +204,12 @@ prints(va_alist)
 va_dcl
 {
   va_list argptr;
-  char *S;
+  char *str;
 
   va_start(argptr);
   Out = 1;
-  S = va_arg(argptr, char *);
-  printvoid(S, argptr);
+  str = va_arg(argptr, char *);
+  printvoid(str, argptr);
   va_end(argptr);
 }
 
@@ -203,42 +219,51 @@ va_dcl
 /* For systems that have stdarg.h, use the following three routines
  */
 /* VARARGS */
-void 
-fprints(fd, S)
+#ifdef PROTO
+void fprints(int fd, char *str, ...)
+#else
+void fprints(fd, str)
   int fd;
-  char *S;
+  char *str;
+#endif
 {
   va_list argptr;
 
-  va_start(argptr, S);
+  va_start(argptr, str);
   Out = fd;
-  printvoid(S, argptr);
+  printvoid(str, argptr);
   va_end(argptr);
 }
 /* VARARGS */
-void 
-sprints(out, S)
+#ifdef PROTO
+void sprints(char *out, char *str, ...)
+#else
+void sprints(out, str)
   char *out;
-  char *S;
+  char *str;
+#endif
 {
   va_list argptr;
 
-  va_start(argptr, S);
+  va_start(argptr, str);
   Dest = out;
   Out = -1;
-  printvoid(S, argptr);
+  printvoid(str, argptr);
   va_end(argptr);
 }
 /* VARARGS */
-void 
-prints(S)
-  char *S;
+#ifdef PROTO
+void prints(char *str, ...)
+#else
+void prints(str)
+  char *str;
+#endif
 {
   va_list argptr;
 
-  va_start(argptr, S);
+  va_start(argptr, str);
   Out = 1;
-  printvoid(S, argptr);
+  printvoid(str, argptr);
   va_end(argptr);
 }
 
@@ -249,33 +274,33 @@ prints(S)
  */
 /* VARARGS */
 void 
-fprints(fd, S, argptr)
+fprints(fd, str, argptr)
   int fd;
-  char *S;
+  char *str;
   char *argptr;
 {
   Out = fd;
-  printvoid(S, &argptr);
+  printvoid(str, &argptr);
 }
 /* VARARGS */
 void 
-sprints(out, S, argptr)
+sprints(out, str, argptr)
   char *out;
-  char *S;
+  char *str;
   char *argptr;
 {
   Dest = out;
   Out = -1;
-  printvoid(S, &argptr);
+  printvoid(str, &argptr);
 }
 /* VARARGS */
 void 
-prints(S, argptr)
-  char *S;
+prints(str, argptr)
+  char *str;
   char *argptr;
 {
   Out = 1;
-  printvoid(S, &argptr);
+  printvoid(str, &argptr);
 }
 
 #endif

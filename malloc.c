@@ -2,7 +2,7 @@
  * return a valid pointer, or exit(1) with a
  * message.
  *
- * malloc.c: 40.2  7/28/93
+ * $Revision: 41.1 $ $Date: 1995/12/29 02:10:46 $
  */
 
 #include "header.h"

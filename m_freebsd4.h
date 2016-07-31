@@ -1,10 +1,10 @@
-/*      386BSD-0.1 specific includes and defines
+/*      FreeBSD 4.x specific includes and defines
  *
- * $Revision: 41.1 $ $Date: 1995/12/29 02:10:46 $
+ * $Revision: 1.1 $ $Date: 2003/04/21 13:08:07 $
  *
  */
 
-#define J386BSD0_1		/* 386BSD-0.1 */
+#define FREEBSD_4		/* FreeBSD 4.x */
 
 #define USES_TERMIOS		/* Use USES_TERMIOS for termios syscalls or */
 #undef USES_SGTTY		/* USES_SGTTY for 4.3BSD sgtty system calls */
@@ -16,18 +16,23 @@
 #define POSIXJOB		/* Define POSIXJOB for POSIX job control or */
 #undef UCBJOB 			/* UCBJOB for 4.3BSD job control */
 
-#define VARARGS
-#define SIGTYPE __sighandler_t	/* Signal handlers return this type */
+#define STDARG
+#define SIGTYPE sig_t		/* Signal handlers return this type */
 
 
 #include <sys/types.h>
 #include <ctype.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <stdio.h>		/* for perror */
 #include <signal.h>
 #include <errno.h>
 #include <pwd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <curses.h>
+#undef OK			/* defined in curses.h */
 #include <sys/time.h>
 #include <sys/file.h>
 #include <sys/wait.h>

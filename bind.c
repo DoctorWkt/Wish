@@ -1,6 +1,6 @@
 /* The key binding routines used by the command line editor
  *
- * bind.c: 40.4  8/2/93
+ * $Revision: 41.3 $ $Date: 1996/06/14 06:24:54 $
  */
 
 #include "header.h"
@@ -10,6 +10,7 @@
  * binding with mode!=0 is only used when the CLE has it's mode bit on.
  */
 
+#ifndef NO_BIND
 struct keybind
 {
   uchar *key;			/* The key sequence we have bound */
@@ -31,21 +32,21 @@ uchar CLEmode;			/* This holds the CLE mode */
  */
 
 static char *defbind[15][3] = {
-			       NULL, "\033\020", "\201",
-			       NULL, "\033B", "\202",
-			       NULL, "\033b", "\202",
-			       NULL, "\033D", "\203",
-			       NULL, "\033d", "\203",
-			       NULL, "\033F", "\204",
-			       NULL, "\033f", "\204",
-			       NULL, "\033H", "\205",
-			       NULL, "\033h", "\205",
-			       NULL, "\033P", "\206",
-			       NULL, "\033p", "\206",
-			       NULL, "\033Y", "\207",
-			       NULL, "\033y", "\207",
-			       NULL, "\033/", "\210",
-			       NULL, "\033?", "\211"
+			        { NULL, "\033\020", "\201" },
+			        { NULL, "\033B", "\202" },
+			        { NULL, "\033b", "\202" },
+			        { NULL, "\033D", "\203" },
+			        { NULL, "\033d", "\203" },
+			        { NULL, "\033F", "\204" },
+			        { NULL, "\033f", "\204" },
+			        { NULL, "\033H", "\205" },
+			        { NULL, "\033h", "\205" },
+			        { NULL, "\033P", "\206" },
+			        { NULL, "\033p", "\206" },
+			        { NULL, "\033Y", "\207" },
+			        { NULL, "\033y", "\207" },
+			        { NULL, "\033/", "\210" },
+			        { NULL, "\033?", "\211" }
 };
 
 /* Bind is a builtin. With no arguments, it lists the current key bindings.
@@ -227,9 +228,13 @@ void initbind()
  * in inbuf, and recurse on them as well.
  */
 
+#ifdef PROTO
+static void expbind(uchar *inbuf)
+#else
 static void 
 expbind(inbuf)			/* Expand bindings from user's input */
   uchar *inbuf;
+#endif
 {
   uchar a, *startptr, *exactptr;
   int c, currlen, partial, exact;
@@ -309,3 +314,4 @@ getcomcmd()			/* Get either a character or a command from the */
 #endif
   return (c);
 }
+#endif	/* NO_BIND */

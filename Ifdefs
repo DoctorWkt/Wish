@@ -1,51 +1,50 @@
-System Defines
---------------
+		      #defines used in Wish 2.0
+		      -------------------------
 
-	For each and every system, one and one only system define is needed.
-The current list of available system defines is below.
+$Revision: 41.1 $ $Date: 1995/12/29 02:57:38 $
 
-#define AUX2_01		/* A/UX 2.01 */
-#define OSX5_1_BSD	/* Pyramid OSx 5.1a, BSD Universe */
-#define COHERENT	/* Coherent */
-#define GENBSD		/* Generic 4.x BSD machine */
-#define GENSYSV		/* Generic SysV machine */
-#define J386BSD0_1	/* 386BSD-0.1 */
-#define MINIX1_5	/* Minix 1.5 */
-#define SUNOS3		/* Sun OS 3.x */
-#define SUNOS4		/* Sun OS 4.x */
-#define OSX5_1_ATT	/* Pyramid under OSx 5.1a, SysV Universe */
-#define ULTRIX4_2	/* Ultrix 4.2 */
+Here are the defines that are used in Wish 2.0. Code that uses specific
+library calls and system calls are appropriately ifdef'd.
+
+DEBUG				/* debugging code used in development */
+MALLOCDEBUG			/* malloc debugging code used in development */
+MINIX1_5			/* Minix 1.5 specific stuff */
+NOTYET				/* code that's not being used, & may never be */
+POSIXJOB			/* POSIX style job control */
+PROTO				/* Ansi-C function prototypes */
+STDARG				/* <stdarg.h> use */
+UCBJOB				/* 4.3BSD style job control */
+USES_DIRECT			/* struct direct instead of struct dirent */
+USES_GETWD			/* getwd() use instead of getcwd() */
+USES_MORESIG			/* sgtty moresig code */
+USES_SGTTY			/* bcopy() and sgttyb/TCIOGETP use */
+USES_TCGETA			/* termio/TCGETA use */
+USES_TERMIOS			/* termios/tcgetattr use */
+V7JOB				/* 7th Edition ptrace(1) job control */
+VARARGS				/* <varargs.h> use */
+
+A small amount of code is specific to some systems. The following systems
+are defined in the m_*.h files. Only the MINIX1_5 define is used in the
+source code. If you are porting Wish to another system, define a name for
+the system, but try not to use this when #ifdef'ing code. Use the #define's
+above, or create a new define, e.g #define USES_INDEX if using index().
 
 
-Operating System Defines
-------------------------
-
-	A lot of code is #ifdef'd according to the type of operating system
-where the code is compiled. Five operating system types are defined below.
-Only one of these should be defined. Also given is the list of system
-defines that define the operating system type.
-
-#define ATT		/* System V release < 4 */
-		GENSYSV
-		OSX5_1_ATT
-
-#define POSIX		/* An OS with POSIX system calls */
-		AUX2_01
-		J386BSD0_1
-		SUNOS4
-
-#define UCB		/* 4.x BSD */
-		OSX5_1_BSD
-		GENBSD
-		SUNOS3
-		ULTRIX4_2
-
-#define COHERENT	/* Coherent */
-		COHERENT
-
-#define MINIX1_5	/* Minix 1.5 */
-		MINIX1_5
-
+AUX2_01			/* A/UX 2.01 */
+COHERENT		/* Coherent */
+FREEBSD_1		/* FreeBSD 1.x */
+FREEBSD_2		/* FreeBSD 2.x */
+GENBSD			/* Generic BSD 4.x machine */
+GENSYSV			/* Generic SysV machine */
+J386BSD0_1		/* 386BSD-0.1 */
+MINIX1_5		/* Minix 1.5 */
+MINIX1_7		/* Minix 1.7 */
+OSX5_1_ATT		/* Pyramid under OSx 5.1a, SysV Universe */
+OSX5_1_BSD 		/* Pyramid OSx 5.1a, BSD Universe */
+SOLARIS_2		/* Solaris 2.x */
+SUNOS3			/* Sun OS 3.x */
+SUNOS4			/* Sun OS 4.x */
+ULTRIX4_2		/* Ultrix 4.2 */
 
 Job Control
 -----------
@@ -58,7 +57,6 @@ one of which should be defined.
 #define POSIXJOB	/* POSIX job control */
 #define V7JOB		/* 7th Edition Unix job control */
 #define UCBJOB		/* Berkeley job control */
-
 
 Argument Passing
 ----------------

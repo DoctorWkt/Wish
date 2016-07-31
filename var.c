@@ -1,6 +1,6 @@
 /* Variables
  *
- * var.c: 40.4  8/2/93
+ * $Revision: 41.2 $ $Date: 1996/06/14 06:24:54 $
  */
 
 #include "header.h"
@@ -45,6 +45,7 @@ EVinit()			/* Initialise symtable from environment */
   return (TRUE);
 }
 
+#ifndef NO_VAR
 bool 
 EVupdate()			/* Build envp from symbol table */
 {
@@ -197,3 +198,4 @@ set(argc, argv)
    }
   return (0);
 }
+#endif	/* NO_VAR */

@@ -1,12 +1,12 @@
 /*      A/UX 2.01 specific includes and defines
  *
- * m_aux.h: 40.3  8/2/93
+ * $Revision: 41.1 $ $Date: 1995/12/29 02:10:46 $
  *
  */
 
 #define AUX2_01		/* A/UX 2.01 */
 
-#define POSIX
+#define USES_TERMIOS
 #define POSIXJOB
 #define VARARGS
 
