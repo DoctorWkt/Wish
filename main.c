@@ -1,6 +1,4 @@
 /* The main loop of the shell
- *
- * $Revision: 41.5 $ $Date: 1996/10/01 02:08:11 $
  */
 
 #include "header.h"
@@ -201,10 +199,10 @@ setup()
   {
     Loginshell= TRUE;		/* Make sure we know */
     if (home)
-     { argv[1]= Malloc(strlen(home) + strlen(".wishrc")+3, "setup malloc");
-       sprints(argv[1],"%s/.wishrc");
+     { argv[1]= Malloc(strlen(home) + strlen(".wishlogin")+3, "setup malloc");
+       sprints(argv[1],"%s/.wishlogin", home);
      }
-    else argv[1] = ".wishlogin";	/* Source .klogin */
+    else argv[1] = ".wishlogin";	/* Source .wishlogin */
     source(2, argv);
     free(argv[1]);
   }

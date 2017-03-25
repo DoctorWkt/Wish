@@ -1,7 +1,5 @@
 /* Here is the declaration of the candidate array. This is used in meta.c
  * and probably in parse.c, as well as several million other places.
- *
- * $Revision: 41.3 $ $Date: 2003/04/21 13:08:43 $
  */
 
 #include "header.h"
@@ -15,7 +13,11 @@ static int maxlen;
  */
 int
 compare(a, b)
+#ifdef BSD43
+  CONST struct candidate *a, *b;
+#else
   CONST void *a, *b;
+#endif
 {
   struct candidate *c, *d;
 
@@ -86,18 +88,18 @@ extend(line, pos, word)
     default:
       if ((newword = (char *) malloc((unsigned) maxlen + 2)) == NULL)
 	return;
-      for (i = 0; i < maxlen + 1; i++)
+      for (i = 0; i < maxlen + 1; i++)		/* Clear the new word */
 	newword[i] = EOS;
       strcpy(newword, word);			/* Set up as much as we have */
 
       for (i = strlen(word); nostop && i < maxlen; i++)
 	for (j = 0; j < ncand; j++)
-	{ if (strlen(carray[j].name) <= i)
-	  { nostop = 0; break; }
-	  if (newword[i] == 0)
+	{ if (strlen(carray[j].name) <= i)	/* Candidate too short, stop */
+	  { newword[i] = EOS; nostop = 0; break; }
+	  if (newword[i] == 0)			/* Copy 1 letter over */
 	    newword[i] = carray[j].name[i];
-	  if (newword[i] != carray[j].name[i])
-	  { newword[i] = EOS;
+	  if (newword[i] != carray[j].name[i])	/* Doesn't match the copy */
+	  { newword[i] = EOS;			/* the scrub letter and stop */
 	    nostop = 0;
 	    break;
 	  }
@@ -172,6 +174,7 @@ findfile(word)
   extern char currdir[];
   int i, j;
   char partdir[MAXWL];
+  char *cddir;
   char *match;
   DIR *dirp;
   struct stat statbuf;
@@ -205,14 +208,14 @@ findfile(word)
   else
   { strcpy(partdir, currdir); i = 0; }
 
+  cddir= partdir;
   if (*partdir == EOS)			/* Can occur when only / is 1st char */
-  { if ((dirp = opendir("/")) == NULL)
-    { prints("Could not open the directory /\n"); return; }
-  }
-  else if ((dirp = opendir(partdir)) == NULL)
-  { prints("Could not open the directory %s\n", partdir); return; }
+    cddir="/";
+  
+  if ((dirp = opendir(cddir)) == NULL)
+  { prints("Could not open the directory %s\n", cddir); return; }
 
-  if (chdir(partdir) == 0)
+  if (chdir(cddir) == 0)
     while ((entry = readdir(dirp)) != NULL && ncand < MAXCAN)
     {
 						/* Ignore dot and dot-dot */
